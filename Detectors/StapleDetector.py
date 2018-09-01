@@ -4,9 +4,10 @@ from matplotlib import pyplot as plt
 import time
 
 #########################Read Raw#########################
-img_path = "IMG_5881.JPG"
-img_path = "IMG_5881.JPG"
-img_path = r"C:\Users\Trevor\Documents\Coding Projects\StapleGooder\RawImages" + "\\" + img_path
+img_name = "IMG_5881.JPG"
+
+img_path = r".\..\RawImages\Staples" + "\\" + img_name
+#img_path = r"C:\Users\Trevor\Documents\Coding Projects\StapleGooder\RawImages\BottleCaps" + "\\" + img_path
 raw_img = cv2.imread(img_path,0)
 
 

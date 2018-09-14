@@ -1,11 +1,21 @@
 import cv2
 import numpy as np
 import imutils
+from matplotlib import pyplot as plt
+
+import Card
 
 CARD_WIDTH = 400    #Width of extracted card images
 CARD_HEIGHT = 600   #Height of extracted card images
 MIN_CARD_SIZE = 1000   #Minimum pixel count for a blob to be considered a card
 MIN_CARD_CURVATURE = .10 #min_curvature, aka "epsilon" is the allowable curvature as a fraction of the arclength
+
+class ROI:
+    def __init__(self, index, contour=None, vertices=None):
+        self.index = index
+        self.contour = contour
+        self.vertices = vertices
+
 class ImageExtractor:
 
     ############Math Helper Methods#########
@@ -31,20 +41,21 @@ class ImageExtractor:
         y = pt2[1] - pt1[1]
         return (x ** 2 + y ** 2) ** .5
 
-    #Image search and extraction
-    def get_image(self, img_path, width=None):
+    # Image search and extraction pipeline
+    def pre_process_image(self, image, width=None):
         """
-        Operation: pull image into memory and pre-process, if requested
+        Operation: pull image into memory and pre-process:
+            -standardize input size
+            -Future: color space?
         :param img_path: path to image
         :param size: desired output width of image
         :return: scaled image
         """
 
-        image = cv2.imread(img_path)
         resized = imutils.resize(image, width=width)
         return resized
 
-    def find_cards(self, image):
+    def locate_ROIs(self, image):
         """
         Operation: Finds cards, and extracts the contours, which are then
             simplified into approximate polygons, which are returns
@@ -60,26 +71,44 @@ class ImageExtractor:
                                 cv2.CHAIN_APPROX_SIMPLE)
         contours = contours[0] if imutils.is_cv2() else contours[1]
 
-        all_cards = []
-        filtered_contours = []
-        for c in contours:
-            if cv2.contourArea(c) >= MIN_CARD_SIZE:
-                filtered_contours.append(c)
-                perimeter = cv2.arcLength(c, True)
-                vertices = cv2.approxPolyDP(c, MIN_CARD_CURVATURE * perimeter, True)
+        ROIs = []
+        self.filtered_contours = []
+        for idx, contour in enumerate(contours):
+            if cv2.contourArea(contour) >= MIN_CARD_SIZE:
+                ROIs.append( ROI(index=idx, contour=contour) )
+        return ROIs
 
-                # Card better have 4 sides, or we messed up
-                # In this case, don't return the bad value...
-                # But we also shouldn't throw an exception for one missing card
-                if (len(vertices) != 4):
-                    # print("Invalid attempt to detect card with %d vertices." % len(vertices))
-                    continue
+    def filter_for_cards(self, ROIs):
+        """
+        Keep it simple: Anything with 4 corners is a card
+        """
+        filtered_ROIs = []
+        for ROI in ROIs:
+            perimeter = cv2.arcLength(ROI.contour, True)
+            vertices = cv2.approxPolyDP(ROI.contour, MIN_CARD_CURVATURE * perimeter, True)
+            if (len(vertices) == 4):
+                ROI.vertices = vertices
+                filtered_ROIs.append(ROI)
 
-                all_cards.append( self._cleanup_vertices(vertices) )
+        return filtered_ROIs
 
-        return all_cards, filtered_contours
+    def extract_images(self, image, ROIs):
+        """
+        :param image:
+        :param ROIs:
+        :return:
+        """
+        # TODO: Add unit test to ensure that order is maintained, such that
+        # ROI[idx] matches images[idx]
 
-    def _cleanup_vertices(self, vertices):
+        images = []
+        for ROI in ROIs:
+            vertices = self._order_vertices(ROI.vertices)
+            images.append( self._transform_and_extract_image(image, vertices) )
+
+        return images
+
+    def _order_vertices(self, vertices):
         """
         Opertaion: The vertices have a few challenges, that we want to tidy up before proceeding.
             1) There is an extra layer of indexing (and it's a middle layer, not outer). I need to
@@ -142,7 +171,7 @@ class ImageExtractor:
 
         return vertices
 
-    def transform_and_extract_image(self, image, input_vertices):
+    def _transform_and_extract_image(self, image, input_vertices):
 
         output_vertices = np.float32([[0, 0], [CARD_WIDTH, 0], [CARD_WIDTH, CARD_HEIGHT], [0, CARD_HEIGHT]])
 
@@ -150,3 +179,60 @@ class ImageExtractor:
         card_img = cv2.warpPerspective(image, M, (CARD_WIDTH, CARD_HEIGHT))
 
         return card_img
+
+    def display_ROIs(self, image, ROIs, color=[255, 0, 0], line_thickness=1, label = True):
+        contours = [ROI.contour for ROI in ROIs]
+        cv2.drawContours(image=image,
+                         contours=contours,
+                         contourIdx= -1,
+                         color=color,
+                         thickness=line_thickness)
+        resized = imutils.resize(image, width=600)
+        cv2.imshow("ROIs Found", resized)
+
+    #Visualization tools that apply to the original input image (not to individually extracted cards)
+    def display_cards(self, card_collection, image, ROIs, color=[255, 0, 0], line_thickness=1, label = True):
+        contours = [ROI.contour for ROI in ROIs]
+        for card in card_collection:
+            cv2.drawContours(image=image,
+                             contours=contours,
+                             contourIdx=card.index,
+                             color=color,
+                             thickness=line_thickness)
+            if label:
+                image = self.annotate_card(image, card, contours[card.index])
+        resized = imutils.resize(image, width=1000)
+        resized = cv2.flip(resized, -1)
+        # resized = cv2.flip(resized, -1)
+        cv2.imshow("Cards Found", resized)
+
+    def display_extracted_images(self, images):
+        # Displays first 12 images extracted (or as many as are available)
+        i=1
+        for image in images:
+            #plot
+            (rows, columns) = (4,3)
+            plt.subplot(rows, columns, i), plt.imshow(image)
+            i+=1
+            if(i > 12):
+                break
+        plt.show(False)
+
+    def annotate_card(self, image, card, contour):
+        cX_offset = -20
+        cY_offset = -45
+
+        M = cv2.moments(contour)
+        cX = int(M['m10']/M['m00']) + cX_offset
+        cY = int(M['m01']/M['m00']) + cY_offset
+
+        cv2.putText(image, repr(card.count), (cX, cY), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (0, 0, 0), 2)
+        cv2.putText(image, repr(card.shape), (cX, cY + 20), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (0, 0, 0), 2)
+        cv2.putText(image, repr(card.fill), (cX, cY + 20 * 2), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (0, 0, 0), 2)
+        cv2.putText(image, repr(card.color), (cX, cY + 20 * 3), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (0, 0, 0), 2)
+
+        return image

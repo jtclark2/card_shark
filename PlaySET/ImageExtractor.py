@@ -7,8 +7,10 @@ import Card
 
 CARD_WIDTH = 400    #Width of extracted card images
 CARD_HEIGHT = 600   #Height of extracted card images
-MIN_CARD_SIZE = 1000   #Minimum pixel count for a blob to be considered a card
+MIN_CARD_SIZE = 10000   #Minimum pixel count for a blob to be considered a card
+MAX_CARD_SIZE = 100000
 MIN_CARD_CURVATURE = .10 #min_curvature, aka "epsilon" is the allowable curvature as a fraction of the arclength
+BLUR = 11
 
 class ROI:
     def __init__(self, index, contour=None, vertices=None):
@@ -41,6 +43,13 @@ class ImageExtractor:
         y = pt2[1] - pt1[1]
         return (x ** 2 + y ** 2) ** .5
 
+    def get_histogram(self, image):
+        # hist = cv2.calcHist([image], [0], None, [255], [0, 255])
+
+        plt.hist(image.ravel(), 255, [0, 255]);
+        plt.show(False)
+        pass
+
     # Image search and extraction pipeline
     def pre_process_image(self, image, width=None):
         """
@@ -52,6 +61,7 @@ class ImageExtractor:
         :return: scaled image
         """
 
+        # self.get_histogram(image)
         resized = imutils.resize(image, width=width)
         return resized
 
@@ -63,8 +73,53 @@ class ImageExtractor:
         :return: List of simplified polygons. These polygons are the corners of the cards.
         """
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        ret,thresh = cv2.threshold(blurred,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        # light_correction = cv2.medianBlur(gray, 201, 0) #Correct aberation in image (brighter in center)
+        print(gray.shape)
+        height, width = gray.shape
+        small_gray = cv2.resize(gray, (int(width/10), int(height/10)))
+        # light_correction = cv2.GaussianBlur(gray, (801, 801), 0) #Reduce noise in the image
+        print((int(width/20)*2+1, int(width/20)*2+1))
+        light_correction = cv2.GaussianBlur(small_gray, (int(width/20)*2+1, int(width/20)*2+1), 0) #Reduce noise in the image
+        light_correction = cv2.resize(light_correction, (width, height))
+        light_correction = light_correction - np.amin(light_correction)
+        cv2.imshow("light_correction", imutils.resize(light_correction, width=600))
+
+
+        # print(np.amin(light_correction), np.amax(light_correction))
+        # gray = gray - light_correction
+        gray = cv2.subtract(gray, light_correction)
+        # gray.convertTo(gray, cv2.CV_8U)
+        # gray = np.uint8(gray)
+
+
+
+        # im = [image[:,:,i] for i in range(3)] #Would allow iteration by channel
+        red = image[:,:,0]
+        green = image[:,:,1]
+        blue = image[:,:,2]
+        new_image = np.zeros(image.shape)
+        for (i, color) in enumerate([red,green,blue]):
+            light_correction = cv2.medianBlur(gray, 801, 0)  # Reduce noise in the image
+            light_correction = light_correction - np.amin(light_correction)
+            ch_corr = cv2.subtract(gray, light_correction)
+            new_image[:,:,i] = ch_corr
+
+
+        # cv2.imshow("Corrected_Gray", imutils.resize(gray, width=600))
+        #Todo: Division makes more sense, but gives us a type mistmatch - resolve later
+        # gray.convertTo(gray,cv2.CV_8UC1)
+        # blurred = cv2.GaussianBlur(gray, (BLUR, BLUR), 0) #Reduce noise in the image
+        blurred = cv2.medianBlur(gray, BLUR, 0) #Reduce noise in the image
+
+        resized = imutils.resize(blurred, width=600)
+        # cv2.imshow("Blurred Image", resized)
+
+        min_thresh = np.amin(resized)#0
+        max_thresh = np.amax(resized)#255
+        ret,thresh = cv2.threshold(blurred,min_thresh,max_thresh,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        # ret,thresh = cv2.threshold(blurred,min_thresh,max_thresh,cv2.THRESH_OTSU)
+
+        # cv2.imshow("test_thresh", imutils.resize(thresh, width=600))
         # find contours in the thresholded image and initialize the
         # shape detector
         contours = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
@@ -74,11 +129,11 @@ class ImageExtractor:
         ROIs = []
         self.filtered_contours = []
         for idx, contour in enumerate(contours):
-            if cv2.contourArea(contour) >= MIN_CARD_SIZE:
+            if MAX_CARD_SIZE <= cv2.contourArea(contour) or cv2.contourArea(contour) >= MIN_CARD_SIZE:
                 ROIs.append( ROI(index=idx, contour=contour) )
         return ROIs
 
-    def filter_for_cards(self, ROIs):
+    def filter_for_rectangles(self, ROIs):
         """
         Keep it simple: Anything with 4 corners is a card
         """
@@ -87,12 +142,15 @@ class ImageExtractor:
             perimeter = cv2.arcLength(ROI.contour, True)
             vertices = cv2.approxPolyDP(ROI.contour, MIN_CARD_CURVATURE * perimeter, True)
             if (len(vertices) == 4):
-                ROI.vertices = vertices
-                filtered_ROIs.append(ROI)
+                (x, y, w, h) = cv2.boundingRect(vertices)
+                ar = w / float(h)
+                if(.7 < ar and ar < 1.5):
+                    ROI.vertices = vertices
+                    filtered_ROIs.append(ROI)
 
         return filtered_ROIs
 
-    def extract_images(self, image, ROIs):
+    def extract_card_images(self, image, ROIs):
         """
         :param image:
         :param ROIs:
@@ -177,7 +235,6 @@ class ImageExtractor:
 
         M = cv2.getPerspectiveTransform(input_vertices, output_vertices)
         card_img = cv2.warpPerspective(image, M, (CARD_WIDTH, CARD_HEIGHT))
-
         return card_img
 
     def display_ROIs(self, image, ROIs, color=[255, 0, 0], line_thickness=1, label = True):
@@ -191,7 +248,7 @@ class ImageExtractor:
         cv2.imshow("ROIs Found", resized)
 
     #Visualization tools that apply to the original input image (not to individually extracted cards)
-    def display_cards(self, card_collection, image, ROIs, color=[255, 0, 0], line_thickness=1, label = True):
+    def display_cards(self, card_collection, image, ROIs, color=[255, 0, 0], line_thickness=1, label = True, flip=False):
         contours = [ROI.contour for ROI in ROIs]
         for card in card_collection:
             cv2.drawContours(image=image,
@@ -202,8 +259,8 @@ class ImageExtractor:
             if label:
                 image = self.annotate_card(image, card, contours[card.index])
         resized = imutils.resize(image, width=1000)
-        resized = cv2.flip(resized, -1)
-        # resized = cv2.flip(resized, -1)
+        if(flip):
+            resized = cv2.flip(resized, -1)
         cv2.imshow("Cards Found", resized)
 
     def display_extracted_images(self, images):

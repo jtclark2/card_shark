@@ -116,21 +116,50 @@ class HandTunedCardAnalyzer(AbstractCardAnalyzer):
                 card = Card(image=mask,shape=shape, count=count)
                 self.mask_library.append(card)
 
-        self.colors = {(.987, .987, .987):(Color.red, Fill.empty),
-                  (.987, .987, .987):(Color.green, Fill.empty),
-                  (.987, .987, .987):(Color.purple, Fill.empty),
-                  (1.14, 1.135, .98):(Color.red, Fill.striped),
-                  (1.11, 1.08, 1.19):(Color.green, Fill.striped),
-                  (1.145, 1.175, 1.138):(Color.purple, Fill.striped),
-                  (2.75, 2.31, .955):(Color.red, Fill.solid),
-                  (2.62, 1.88, 10.7):(Color.green, Fill.solid),
-                  (3.72, 6.24, 3.39):(Color.purple, Fill.solid),
+        self.default_colors = {(None, Fill.empty):(.987, .987, .987),
+                  (None, Fill.empty):(.987, .987, .987),
+                  (None, Fill.empty):(.987, .987, .987),
+                  (Color.red, Fill.striped):(1.14, 1.135, .98),
+                  (Color.green, Fill.striped):(1.11, 1.08, 1.19),
+                  (Color.purple, Fill.striped):(1.145, 1.175, 1.138),
+                  (Color.red, Fill.solid):(2.75, 2.31, .955),
+                  (Color.green, Fill.solid):(2.62, 1.88, 10.7),
+                  (Color.purple, Fill.solid):(3.72, 6.24, 3.39),
                   }
+        self.colors=self.default_colors
 
-        # Since my edge filter is imperfect, the colors are blended with white
-        self.edge_colors = {(.751, .755, .927):(Color.red, Fill.empty),
-                            (.74, .775, .645):(Color.green, Fill.empty),
-                            (.706, .66, .701):(Color.purple, Fill.empty)}
+        # Edge pixels get blurred into the white, so the colors are similar, but brighter and whiter
+        self.default_edge_colors = {(Color.red, Fill.empty):(.751, .755, .927),
+                            (Color.green, Fill.empty):(.74, .775, .645),
+                            (Color.purple, Fill.empty):(.706, .66, .701)
+                           }
+        self.edge_colors = self.default_edge_colors
+
+        self.cal_sum = np.array([0., 0., 0.])  # for the calibration routine
+        self.count = 0
+
+    def calibrate_colors(self, key, value):
+        if key is 'reset':
+            self.cal_sum = np.array([0., 0., 0.])
+            self.count = 0
+            return
+
+        # Python is struggling with comparison of tuples, so we convert to strings first
+        # ...not quite as good as comparing the objects, but it will work
+
+
+        if (repr(key) in [repr(color) for color in self.colors]):
+            self.cal_sum = np.array( [v+s for (v,s) in zip(value,self.cal_sum)] )
+            self.count += 1
+            self.colors[key] = self.cal_sum / self.count
+            print("%s, %s, %s" % (self.colors[key][0], self.colors[key][1], self.colors[key][2]) )
+
+        if (repr(key) in [repr(color) for color in self.edge_colors]):
+            self.cal_sum = np.array( [v+s for (v,s) in zip(value,self.cal_sum)] )
+            self.count += 1
+            self.edge_colors[key] = self.cal_sum / self.count
+            print("edge: %s, %s, %s" % (self.edge_colors[key][0], self.edge_colors[key][1], self.edge_colors[key][2]) )
+
 
     def identify_card(self, card):
         """
@@ -269,17 +298,18 @@ class HandTunedCardAnalyzer(AbstractCardAnalyzer):
             in_color.append(inner_mean)
             out_color.append(outer_mean)
 
-        corrected_color = [inner/outer for (inner,outer) in zip(in_color, out_color)]
-        #print(self._distance(corrected_color))
-        # print(corrected_color)
+        self.corrected_color = [inner/outer for (inner,outer) in zip(in_color, out_color)]
+        #print(self._distance(self.corrected_color))
+        # print(self.corrected_color)
 
         closest_distance = 1000 #Init to large value
         best_match = (None, None)
-        for swatch in self.colors:
-            distance = self._distance(swatch, corrected_color)
+        for color in self.colors:
+            swatch = self.colors[color]
+            distance = self._distance(swatch, self.corrected_color)
             if distance < closest_distance:
                 closest_distance = distance
-                best_match = self.colors[swatch]
+                best_match = color
 
         # try:
         # Our swatch contains the inside fill of the shape (for empty ones, that's always white,
@@ -305,27 +335,28 @@ class HandTunedCardAnalyzer(AbstractCardAnalyzer):
             for idx in (0, 1, 2):
                 (edge_mean, _) = cv2.meanStdDev(image[:, :, idx], mask=edge_mask)
                 edge_color.append(edge_mean)
-                corrected_color = [edge / outer for (edge, outer) in zip(edge_color, out_color)]
+            self.corrected_edge_color = [edge / outer for (edge, outer) in zip(edge_color, out_color)]
 
-            channel_ratio = corrected_color[2] / corrected_color[0]
-            if channel_ratio < .97:
-                best_color = Color.green
-            elif channel_ratio > 1.05:
-                best_color = Color.red
-            else:
-                best_color = Color.purple
+            # channel_ratio = corrected_edge_color[2] / corrected_edge_color[0]
+            # if channel_ratio < .97:
+            #     best_color = Color.green
+            # elif channel_ratio > 1.05:
+            #     best_color = Color.red
+            # else:
+            #     best_color = Color.purple
 
-            # corrected_color = [channel/corrected_color[0] for channel in corrected_color]
-            print(channel_ratio)
+            # corrected_edge_color = [channel/corrected_edge_color[0] for channel in corrected_edge_color]
+            # print(channel_ratio)
 
-            # closest_distance = 1000  # Init to large value
-            # for swatch in self.edge_colors:
-            #     # swatch_norm = swatch
-            #     swatch_norm = [channel/swatch[0] for channel in swatch]
-            #     distance = self._distance(swatch_norm, corrected_color)
-            #     if distance < closest_distance:
-            #         closest_distance = distance
-            #         (best_color, _) = self.edge_colors[swatch]
+            closest_distance = 1000000  # Init to large value
+            for color in self.edge_colors:
+                swatch = self.edge_colors[color]
+                # swatch_norm = swatch
+                swatch_norm = [channel/swatch[0] for channel in swatch]
+                distance = self._distance(swatch_norm, self.corrected_edge_color)
+                if distance < closest_distance:
+                    closest_distance = distance
+                    (best_color, _) = color
 
             return (best_color, best_match[1])
 

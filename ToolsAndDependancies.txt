@@ -1,7 +1,0 @@
-Native Language: Python 3
-Image Processing: OpenCV
-Deep Learning: TensorFlow
-Data Management: Pandas
-Saving Models: Pickle
-GUI: QT / pyQT
-Graphics: OpenGL

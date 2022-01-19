@@ -1,34 +1,3 @@
-# References that made this possible
-#
-# Image Processing:
-# https://www.pyimagesearch.com/2016/02/08/opencv-shape-detection/
-# https://www.pyimagesearch.com/2016/02/08/opencv-shape-detection/
-# https://www.pyimagesearch.com/2016/02/15/determining-object-color-with-opencv/
-#
-# Thresholding:
-# https://docs.opencv.org/3.4.0/d7/d4d/tutorial_py_thresholding.html
-#
-# Contours:
-# https://docs.opencv.org/3.1.0/dd/d49/tutorial_py_contour_features.html
-#
-# Transform / Projection
-# https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_geometric_transformations/py_geometric_transformations.html
-#
-# Histograms (didn't end up using this, but helped to investigate what was happening)
-# https://docs.opencv.org/3.1.0/d1/db7/tutorial_py_histogram_begins.html
-#
-# And the opencv docs, which humble you, because...
-# After spending hours masking and learning to run stats on images...turns out this one liner did it :)
-# https://docs.opencv.org/2.4/modules/core/doc/operations_on_arrays.html#void%20meanStdDev(InputArray%20src,%20OutputArray%20mean,%20OutputArray%20stddev,%20InputArray%20mask)
-# https://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=drawcontours
-# https://docs.opencv.org/3.0-beta/modules/refman.html
-
-# import the necessary packages
-
-# import sys
-# sys.path.insert(0, r'C:\Users\Trevor\Documents\Coding Projects\ImageEvaluator\ShapeDetectAndAnalysisTutorial')
-# import argparse
-
 import Card
 import ImageExtractor
 import CardAnalyzer
@@ -90,10 +59,9 @@ if __name__ == "__main__":
     player = SetPlayer.SetPlayer()
     game = Game()
 
-    # IMG_PATH = "IMG_6441.JPG"
-    IMG_PATH = "WebCam1.PNG"
+    IMG_PATH = "ImageLibrary/WebCam1.PNG"
     IMG_DIR ="ImageLibrary/%s.jpg"
-    IMG_SOURCE = "camera"
+    IMG_SOURCE = "saved_image"
 
 if IMG_SOURCE == "saved_image":
     import time
@@ -143,19 +111,22 @@ else:
     cap.set(CV_CAP_PROP_FRAME_WIDTH, 1920)
     cap.set(CV_CAP_PROP_FRAME_HEIGHT, 1080)
     cap.set(CV_CAP_PROP_SATURATION, 100) # 0 - 100, values outside this range are ignored
-    cap.set(CV_CAP_PROP_EXPOSURE, -3)
     cap.set(CV_CAP_PROP_HUE, 100)
-
-    # set so that they wouldn't auto-adjust on me
-
-    cap.set(CV_CAP_PROP_WHITE_BALANCE_U, 99)
-    cap.set(CV_CAP_PROP_WHITE_BALANCE_V, 99)
+    
     cap.set(CV_CAP_PROP_MODE, 1)
     cap.set(CV_CAP_PROP_FPS, 1)
     cap.set(CV_CAP_PROP_BRIGHTNESS, 10)
-    cap.set(CV_CAP_PROP_GAIN, 0)
-    cap.set(CV_CAP_PROP_CONTRAST, 99)
-    # cap.set(CV_CAP_PROP_CONVERT_RGB, True)
+    cap.set(CV_CAP_PROP_CONTRAST, 255)
+    cap.set(CV_CAP_PROP_CONVERT_RGB, True)
+
+    # set so that they wouldn't auto-adjust on me
+
+    # Not supported with my hardware
+    # cap.set(CV_CAP_PROP_WHITE_BALANCE_U, 99) # not supported with my current camera
+    # cap.set(CV_CAP_PROP_WHITE_BALANCE_V, 99) # not supported with my current camera
+    # cap.set(CV_CAP_PROP_EXPOSURE, -3) # not supported with my current camera
+    # cap.set(CV_CAP_PROP_GAIN, 0) # not supported with my current camera
+
 
 
     while(True):
@@ -219,5 +190,3 @@ else:
             break
 
     # When everything done, release the capture
-
-

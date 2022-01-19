@@ -114,8 +114,15 @@ class ImageExtractor:
         # shape detector
         contours = cv2.findContours(thresh_im.copy(), cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)
-        contours = contours[0] if imutils.is_cv2() else contours[1]
 
+        # determine which version of opencv is running...apparently the contour format has changed a few times.
+        if imutils.is_cv2():
+            contours = contours[0]
+        if imutils.is_cv3():
+            contours = contours[1]
+        if imutils.is_cv4():
+            contours = contours[0]
+        # contours = contours[0] if imutils.is_cv2() else contours[1]
         ROIs = []
         self.filtered_contours = []
         for idx, contour in enumerate(contours):

@@ -173,7 +173,16 @@ class HandTunedCardAnalyzer(AbstractCardAnalyzer):
 
         contours = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
                                     cv2.CHAIN_APPROX_SIMPLE)
-        contours = contours[0] if imutils.is_cv2() else contours[1]
+
+        # TODO: I've copied this at least twice - make a function for it
+        # determine which version of opencv is running...apparently the contour format has changed a few times.
+        if imutils.is_cv2():
+            contours = contours[0]
+        if imutils.is_cv3():
+            contours = contours[1]
+        if imutils.is_cv4():
+            contours = contours[0]
+        # contours = contours[0] if imutils.is_cv2() else contours[1]
 
         SYMBOL_SIZE_THRESH = 1000
 

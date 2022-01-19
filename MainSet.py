@@ -6,187 +6,117 @@ import SetPlayer
 import time
 import cv2
 
+import Visualizer
 
-class Game():
 
-    def process_image(self, image):
-        # Process image
-        key_dict = {
-            "Raw_Contour" : [0, 0, 255],
-            "Card" : [255, 0, 0],
-            # "Recognizable Card" : [100, 184, 0],
-            "Set" : [0, 255, 0]
-        }
+class Game:
 
-        # Filter #1 : create contours around Regions Of Interest(ROIs)
-        self.ROIs = image_extractor.locate_ROIs(image)
-        display_image = image.copy()
-        image_extractor.display_ROIs(display_image, self.ROIs, color=key_dict["Raw_Contour"], line_thickness=3)
+    def __init__(self, extractor, visualizer, player):
+        self.extractor = extractor
+        self.visualizer = visualizer
+        self.player = player
 
-        # Filter #2: Find 4 cornered, card-shaped rectangles images
-        self.card_ROIs = image_extractor.filter_for_rectangles(self.ROIs)
-        # image_extractor.display_ROIs(display_image, self.card_ROIs, color=key_dict["Card"], line_thickness=3)
-
-        # Filter #3: Keep only identifiable cards
-        self.card_images = image_extractor.extract_card_images(image, self.card_ROIs)
-        max_cards_to_display = 7
-
-        self.cards = []
-        for idx, card_image in enumerate(self.card_images):
+    def find_cards(self, image):
+        images = self.extractor.detect_cards(image)
+        cards = []
+        for idx, card_image in enumerate(images):
             card = Card.Card(index=idx, image=card_image)
             card = card_analyzer.identify_card(card)
             if card is not None:
-                self.cards.append(card)
+                cards.append(card)
 
+            max_cards_to_display = 3
             if idx < max_cards_to_display:
                 cv2.imshow("Card # %d" % (idx), card_image)
 
-        image_extractor.display_cards(self.cards, display_image, self.card_ROIs, color=key_dict["Card"], line_thickness=3)
+        # Process image
+        color_table = {
+            "Card" : [255, 0, 0], # Red
+            "Set" : [0, 255, 0], # Green
+            "Raw_Contour" : [0, 0, 255], # Blue
+        }
 
-        # Filter #4: Identify sets of cards
-        self.sets = player.find_sets(self.cards)
-        if(len(self.sets) > 0):
-            image_extractor.display_cards(self.sets[0], display_image, self.card_ROIs, color=key_dict["Set"], line_thickness=3)
+        display_image = image.copy() # Create a copy to add graphics on top of
 
-        image_extractor.display_key(display_image, key_dict, display_width = 1500)
+        all_ROIs = self.extractor.ROIs
+        card_ROIs = self.extractor.card_ROIs
+
+
+        # Display
+        self.visualizer.display_ROIs(display_image, all_ROIs, color=color_table["Raw_Contour"], line_thickness=3)
+        self.visualizer.display_cards(cards, display_image, card_ROIs, color=color_table["Card"], line_thickness=3)
+
+
+        # # Filter #4: Identify sets of cards
+        sets = player.find_sets(cards)
+        if(len(sets) > 0):
+            self.visualizer.display_cards(sets[0], display_image, card_ROIs, color=color_table["Set"], line_thickness=3)
+
+        self.visualizer.display_key(display_image, color_table, display_width = 1500)
+
+        self.card_images = images
+
+        return cards
 
 
 ##################Main######################
-if __name__ == "__main__":
-    ########Select tools (extractor, analyzer, player)#########
-    image_extractor = ImageExtractor.ImageExtractor()
-    card_analyzer = CardAnalyzer.HandTunedCardAnalyzer()  # Feature analyzer is better name
-    player = SetPlayer.SetPlayer()
-    game = Game()
+# Configure
+# image_source = Camera
+#
+# get_image
+# while image is not None:
+    # get_image
+    # pre_process_image
+    # ROIs, images = detect_cards (image)
+    # cards = identify_cards(images)
+    # sets = determine_sets(cards)
+    # display_contours() # probably comment out
+    # display_cards()
+    # display_sets()
+    # detect_special_keys()
 
-    IMG_PATH = "ImageLibrary/WebCam1.PNG"
-    IMG_DIR ="ImageLibrary/%s.jpg"
-    IMG_SOURCE = "saved_image"
+########Select tools (extractor, analyzer, player)#########
+image_extractor = ImageExtractor.ImageExtractor()
+card_analyzer = CardAnalyzer.HandTunedCardAnalyzer()  # Feature analyzer is better name
+player = SetPlayer.SetPlayer()
+visualizer = Visualizer.Visualizer()
+game = Game(image_extractor, visualizer, player)
+
+IMG_PATH = "ImageLibrary/IMG_6394.JPG"
+IMG_DIR ="ImageLibrary/%s.jpg"
+IMG_SOURCE = "saved_image"
 
 if IMG_SOURCE == "saved_image":
     import time
     t0 = time.time()
 
     image = cv2.imread(IMG_PATH)
-    game.process_image(image)
-
+    image = image_extractor.pre_process_image(image)
+    cards = game.find_cards(image)
 
     print("Image processed in: %f seconds" % (time.time() - t0))
-
-    if (len(game.sets) > 0):
-        image_extractor.display_cards(game.sets[0], image, game.ROIs, color=[0, 255, 0], line_thickness=5)
-
-
-    if (len(game.card_images) > 0):
-        cv2.imshow("Card", game.card_images[0])
-
+    print("Press 'q' to close all windows.")
     cv2.waitKey(0)
-else:
-    # https://docs.opencv.org/2.4/modules/highgui/doc/reading_and_writing_images_and_video.html
-    # CV_CAP_PROP_POS_MSEC = 0
-    # CV_CAP_PROP_POS_FRAMES = 1
-    # CV_CAP_PROP_POS_AVI_RATIO =  2
-    CV_CAP_PROP_FRAME_WIDTH = 3
-    CV_CAP_PROP_FRAME_HEIGHT = 4
-    CV_CAP_PROP_FPS = 5
-    # CV_CAP_PROP_FOURCC = 6
-    # CV_CAP_PROP_FRAME_COUNT = 7
-    # CV_CAP_PROP_FORMAT = 8
-    CV_CAP_PROP_MODE = 9
-    CV_CAP_PROP_BRIGHTNESS = 10
-    CV_CAP_PROP_CONTRAST = 11
-    CV_CAP_PROP_SATURATION = 12
-    CV_CAP_PROP_HUE = 13
-    CV_CAP_PROP_GAIN = 14
-    CV_CAP_PROP_EXPOSURE = 15
-    CV_CAP_PROP_CONVERT_RGB=16
-    CV_CAP_PROP_WHITE_BALANCE_U = 17
-    CV_CAP_PROP_WHITE_BALANCE_V = 18
-    # CV_CAP_PROP_RECTIFICATION = 19
-    # CV_CAP_PROP_ISO_SPEED = 20
-    # CV_CAP_PROP_BUFFERSIZE = 21
-
-    # Intentionally set to specific values
-    cap = cv2.VideoCapture(0)
-    cap.set(CV_CAP_PROP_FRAME_WIDTH, 1920)
-    cap.set(CV_CAP_PROP_FRAME_HEIGHT, 1080)
-    cap.set(CV_CAP_PROP_SATURATION, 100) # 0 - 100, values outside this range are ignored
-    cap.set(CV_CAP_PROP_HUE, 100)
-    
-    cap.set(CV_CAP_PROP_MODE, 1)
-    cap.set(CV_CAP_PROP_FPS, 1)
-    cap.set(CV_CAP_PROP_BRIGHTNESS, 10)
-    cap.set(CV_CAP_PROP_CONTRAST, 255)
-    cap.set(CV_CAP_PROP_CONVERT_RGB, True)
-
-    # set so that they wouldn't auto-adjust on me
-
-    # Not supported with my hardware
-    # cap.set(CV_CAP_PROP_WHITE_BALANCE_U, 99) # not supported with my current camera
-    # cap.set(CV_CAP_PROP_WHITE_BALANCE_V, 99) # not supported with my current camera
-    # cap.set(CV_CAP_PROP_EXPOSURE, -3) # not supported with my current camera
-    # cap.set(CV_CAP_PROP_GAIN, 0) # not supported with my current camera
 
 
-
+if IMG_SOURCE == "camera":
+    import Camera
+    cam = Camera.Camera()
+    cam.configure()
     while(True):
-        # Capture frame-by-frame
-        ret, frame = cap.read()
-        if (frame is None):
-            print("Available Camera Connection not found. Connect Camera, and close the previous connection fist!")
+        frame = cam.read() # Capture frame-by-frame
+        if frame is None:
             break
-
         frame = image_extractor.pre_process_image(frame)
-        game.process_image(frame)
-        #
-        # image_extractor.display_cards(game.cards, frame, game.ROIs, color=[255, 0, 0], line_thickness=2)
-        # if (len(game.sets) > 0):
-        #     image_extractor.display_cards(game.sets[0], frame, game.ROIs, color=[0, 255, 0], line_thickness=5)
-        #
-
+        cards = game.find_cards(frame)
 
         key_input = cv2.waitKey(1)
 
         if (key_input & 0xFF == ord('s')): # Save
-            name = "ImageSet/%s.jpg" % repr(time.time())
+            name = "ImageLibrary/Capture%s.jpg" % repr(time.time())
             cv2.imwrite(name, frame)
 
-        cal_lookup = {
-             ord('0') : (None, Card.Fill.empty),
-             ord('1') : (Card.Color.red, Card.Fill.empty),
-             ord('2'): (Card.Color.green, Card.Fill.empty),
-             ord('3'): (Card.Color.purple, Card.Fill.empty),
-             ord('4'): (Card.Color.red, Card.Fill.striped),
-             ord('5'): (Card.Color.green, Card.Fill.striped),
-             ord('6'): (Card.Color.purple, Card.Fill.striped),
-             ord('7'): (Card.Color.red, Card.Fill.solid),
-             ord('8'): (Card.Color.green, Card.Fill.solid),
-             ord('9'): (Card.Color.purple, Card.Fill.solid),
-             ord('r'): 'reset',
-        }
-
-        edge_set = (ord('1'), ord('2'), ord('3'))
-
-        key_stroke = (key_input & 0xFF)
-        if ( key_stroke in cal_lookup): # Calibrate
-            if (len(game.card_images) == 1):
-                card = Card.Card(index=0, image=game.card_images[0])
-                key = cal_lookup[key_input]
-                if(key_stroke in edge_set):
-                    try:
-                        value = card_analyzer.corrected_edge_color
-                        card_analyzer.calibrate_colors(key=key, value=value)
-                    except:
-                        print("This card does not appear to have fill='Empty'.")
-                else: # any other
-                    value = card_analyzer.corrected_color
-                    print(value)
-                    card_analyzer.calibrate_colors(key=key, value=value)
-
-
         if (key_input & 0xFF == ord('q')): # Quit
-            cap.release()
+            cam.release()
             cv2.destroyAllWindows()
             break
-
-    # When everything done, release the capture

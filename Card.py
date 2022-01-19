@@ -44,6 +44,7 @@ class Fill(Enum):
 class Card:
     def __init__(self, image=None, shape=None, color=None, count=None, fill=None, index=None):
         self.image = image
+        # self.contour = contour
         self.shape = shape
         self.color = color
         self.count = count

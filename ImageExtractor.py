@@ -3,6 +3,7 @@ import numpy as np
 import imutils
 from matplotlib import pyplot as plt
 
+import CardAnalyzer
 import Card
 
 CARD_WIDTH = 400    #Width of extracted card images
@@ -82,6 +83,19 @@ class ImageExtractor:
         self.card_images = self.extract_card_images(image, self.card_ROIs)
 
         return self.card_images
+
+    def find_cards(self, image):
+        card_analyzer = CardAnalyzer.HandTunedCardAnalyzer()
+
+        images = self.detect_cards(image)
+        cards = []
+        for idx, card_image in enumerate(images):
+            card = Card.Card(index=idx, image=card_image)
+            card = card_analyzer.identify_card(card)
+            if card is not None:
+                cards.append(card)
+
+        return cards
 
     def locate_ROIs(self, image):
         """

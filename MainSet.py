@@ -23,25 +23,32 @@ visualizer = Visualizer.Visualizer()
 IMG_PATH = "ImageLibrary/IMG_6394.JPG"
 IMG_DIR ="ImageLibrary/%s.jpg"
 IMG_SOURCE = "saved_image"
+# IMG_SOURCE = "camera"
 
-if IMG_SOURCE == "saved_image":
-    import time
-    t0 = time.time()
 
-    image = cv2.imread(IMG_PATH)
-
+# Processing Pipeline
+def process_image(image, image_extractor, color_table, player, visualizer):
     image = image_extractor.pre_process_image(image)
     cards = image_extractor.find_cards(image)
     sets = player.find_sets(cards)
-    print("Image processed in: %f seconds" % (time.time() - t0))
 
     display_image = image.copy() # Create a copy to add graphics on top of
     visualizer.overlay_ROIs(display_image, image_extractor.ROIs, color=color_table["Raw_Contour"], line_thickness=3)
     visualizer.overlay_cards(cards, display_image, image_extractor.card_ROIs, color=color_table["Card"], line_thickness=3)
+
     if len(sets) > 0:
         visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"], line_thickness=3)
     visualizer.overlay_color_key(display_image, color_table)
     visualizer.display_image(display_image, width=500)
+
+
+
+# Process image/stream
+
+if IMG_SOURCE == "saved_image":
+    image = cv2.imread(IMG_PATH)
+
+    process_image(image, image_extractor, color_table, player, visualizer)
     visualizer.plot_extracted_cards(image_extractor.card_images)
 
     cv2.waitKey(0)
@@ -49,28 +56,14 @@ if IMG_SOURCE == "saved_image":
 
 if IMG_SOURCE == "camera":
     import Camera
-    cam = Camera.Camera()
+    cam = Camera.Camera(1) # Starts at 0 (built-in laptop cam is usually 0, and USB cam is usually 1)
     cam.configure()
     while(True):
         image = cam.read() # Capture frame-by-frame
         if image is None:
             break
 
-        image = image_extractor.pre_process_image(image)
-        cards = image_extractor.find_cards(image)
-        sets = player.find_sets(cards)
-
-        display_image = image.copy()  # Create a copy to add graphics on top of
-        visualizer.overlay_ROIs(display_image, image_extractor.ROIs, color=color_table["Raw_Contour"],
-                                line_thickness=3)
-        visualizer.overlay_cards(cards, display_image, image_extractor.card_ROIs, color=color_table["Card"],
-                                 line_thickness=3)
-        if len(sets) > 0:
-            visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"],
-                                     line_thickness=3)
-        visualizer.overlay_color_key(display_image, color_table)
-        visualizer.display_image(display_image, width=500)
-        # visualizer.plot_extracted_cards(image_extractor.card_images)
+        process_image(image, image_extractor, color_table, player, visualizer)
 
         key_input = cv2.waitKey(1)
 

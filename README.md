@@ -50,20 +50,26 @@ conflicts get a bit messy(PIL), and imutils isn't available.
 `conda install -c conda-forge opencv=4.1.0`
 `conda install -c conda-forge imutils`
 
+Just got it to work, but I can't isolate all the dependencies...I'll leave a hodgepodge of
+notes here, and start trying to isolate the dependencies later:
+- opencv...this installs fine, but for whatever reason, the Windows build of pycharm can't seem
+to load cv2...I have no idea why (maybe it's import cv or cv4 instead, or something like that, 
+    - 4.0.1... I also have opencv-python 4.4.0.44, but I'm not sure if that's relevant
+but it doesn't work, so I ended up cloning my ml2 env instead)
+- numpy (1.18.5 according to conda list, but the install record shows numpy-1.22.2)
+- matplotlib (3.2.2)
+- "Pillow" (not to be confused with "pillow")...again, I don't know what the deal is,
+but there are two versions, and upper and lower case. I eventually got upper case to work 
+`pip install --upgrade Pillow`...I ended up with Pillow-9.0.1
+- Then I had a version mismatch with scipy, and ended up upgrading with 
+`python -m pip install scipy --upgrade --force`, which upgraded to numpy-1.22.2, and scipy-1.8.0
+
+- scipy (1.8.0)
+
 
 On linux:
 `sudo apt-get install libgtk2.0-dev`
 `sudo apt-get install pkg-config`
-
-I wrote most of this a couple years ago, before I was standardizing env setup. I'll try to add a script to it.
-For now, the dependencies are: 
-- opencv (cv2)
-- numpy
-- matplotlib
-- pillow (PIL (this one is a little finnicky - DLL load failure...I think the pip and conda installers might differ slightly,
-but I'm still look into it)
-- imutils (not sure why I didn't just use opencv...I'll look into removing that dependency)
-- scipy
 
 
 # References that made this possible

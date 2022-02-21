@@ -73,6 +73,11 @@ class ImageExtractor:
         return resized
 
     def detect_cards(self, image):
+        """
+        Each step in this is so important, I might just break it out to top-level processing
+        :param image:
+        :return:
+        """
         # Filter #1 : create contours around Regions Of Interest(ROIs)
         self.ROIs = self.locate_ROIs(image)
 
@@ -84,10 +89,9 @@ class ImageExtractor:
 
         return self.card_images
 
-    def find_cards(self, image):
+    def identify_cards(self, images):
         card_analyzer = CardAnalyzer.HandTunedCardAnalyzer()
 
-        images = self.detect_cards(image)
         cards = []
         for idx, card_image in enumerate(images):
             card = Card.Card(index=idx, image=card_image)
@@ -117,19 +121,6 @@ class ImageExtractor:
 
         #Todo: Division makes more sense, but gives us a type mistmatch - resolve later
         gray = cv2.subtract(gray, light_correction)
-
-        #TODO: applying on a per card basis instead...seems effective so far. Delete this if performance is good
-        # # im = [image[:,:,i] for i in range(3)] #Would allow iteration by channel
-        # red = image[:,:,0]
-        # green = image[:,:,1]
-        # blue = image[:,:,2]
-        # new_image = np.zeros(image.shape)
-        # for (i, color) in enumerate([red,green,blue]):
-        #     light_correction = cv2.medianBlur(gray, 801, 0)  # Reduce noise in the image
-        #     light_correction = light_correction - np.amin(light_correction)
-        #     ch_corr = cv2.subtract(gray, light_correction)
-        #     new_image[:,:,i] = ch_corr
-
 
         blurred = cv2.medianBlur(gray, BLUR, 0) #Reduce noise in the image
 

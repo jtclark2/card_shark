@@ -1,11 +1,11 @@
 import time
 import cv2
 
-import Card
 import ImageExtractor
 import CardAnalyzer
 import SetPlayer
 import Visualizer
+import Camera
 
 
 ######## Configure setup #########
@@ -23,13 +23,11 @@ visualizer = Visualizer.Visualizer()
 IMG_PATH = "ImageLibrary/IMG_6394.JPG"
 IMG_DIR ="ImageLibrary/%s.jpg"
 IMG_SOURCE = "saved_image"
-# IMG_SOURCE = "camera"
-
 
 # Processing Pipeline
-def process_image(image, image_extractor, color_table, player, visualizer):
-    image = image_extractor.pre_process_image(image)
-    cards = image_extractor.find_cards(image)
+def image_pipeline(image, image_extractor, color_table, player, visualizer):
+    images = image_extractor.detect_cards(image)
+    cards = image_extractor.identify_cards(images)
     sets = player.find_sets(cards)
 
     display_image = image.copy() # Create a copy to add graphics on top of
@@ -43,19 +41,18 @@ def process_image(image, image_extractor, color_table, player, visualizer):
 
 
 
-# Process image/stream
-
+# Read image, process, display image, and plot all cards found
 if IMG_SOURCE == "saved_image":
     image = cv2.imread(IMG_PATH)
 
-    process_image(image, image_extractor, color_table, player, visualizer)
+    image_pipeline(image, image_extractor, color_table, player, visualizer)
     visualizer.plot_extracted_cards(image_extractor.card_images)
 
     cv2.waitKey(0)
 
 
+# Loop image capture and save/quit key interactions
 if IMG_SOURCE == "camera":
-    import Camera
     cam = Camera.Camera(1) # Starts at 0 (built-in laptop cam is usually 0, and USB cam is usually 1)
     cam.configure()
     while(True):
@@ -63,7 +60,7 @@ if IMG_SOURCE == "camera":
         if image is None:
             break
 
-        process_image(image, image_extractor, color_table, player, visualizer)
+        image_pipeline(image, image_extractor, color_table, player, visualizer)
 
         key_input = cv2.waitKey(1)
 

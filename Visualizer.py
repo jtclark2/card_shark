@@ -48,7 +48,17 @@ class Visualizer:
         cv2.imshow("Rich Diagnostic View", image)
 
     def plot_extracted_cards(self, images):
-        # Displays first 12 images extracted (or as many as are available)
+        """
+        Purpose: Displays first 12 images extracted (or as many as are available)
+        Side Effects:
+            - Plots cards
+            - Is slow / blocking. Not recommended for use with live video
+        :param images: Images of cards to be plotted
+        :return: None
+        """
+        # TODO: I'm 99% sure I have the color channels sorted incorrectly (probably using default OpenCV read)
+        # I should probably fix right when I read in the image, rather than wherever I do it for the live video
+        # Make sure to do it once and be done
         i=1
         for image in images:
             #plot

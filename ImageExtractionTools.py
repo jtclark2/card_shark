@@ -115,7 +115,9 @@ class Librarian:
         return name
 
     def _extract_images(self, image):
-        (all_card_vertices, self.contours) = self.image_extractor.find_cards(image)
+
+        images = image_extractor.detect_cards(image)
+        (all_card_vertices, self.contours) = self.image_extractor.identify_cards(images) # not sure this line would work...deprecated code?
         card_images = []
         for idx, card_vertices in enumerate(all_card_vertices):
             card_images.append( image_extractor.transform_and_extract_image(image, card_vertices) )

@@ -1,4 +1,5 @@
 from Card import *
+import random
 
 class SetPlayer:
     def find_sets(self, cards):
@@ -8,7 +9,7 @@ class SetPlayer:
         :return:
             List of sets of 3 cards.
         """
-        return self._find_sets_brute_force(cards)
+        return self._find_sets_efficient(cards)
 
     def _find_sets_brute_force(self, cards):
         """
@@ -21,70 +22,177 @@ class SetPlayer:
             for idx2, card2 in enumerate(cards[idx1 + 1:], start=idx1 + 1):
                 for idx3, card3 in enumerate(cards[idx2 + 1:], start=idx2 + 1):
                     i += 1
-                    if (self._check_set(card1, card2, card3)):
-                        Sets.append(set([card1, card2, card3]))
+                    potential_set =  set([card1, card2, card3])
+                    if (self._check_set(potential_set)):
+                        Sets.append(potential_set)
                         valid = True
                     else:
                         valid = False
         return Sets
 
-    def _find_sets_efficient(self):
+    def find_third_card(self, card1, card2):
         """
-        - for this description, I'll use capital 'Set' to indicate a winning combination of cards, and lowercase 'set'
-            just means the data structure
-        - We have 4 properties: color, shape, number, and fill
-        - Each property has 3 possible values.
+        ### Untested ###
 
+        Any pair of cards forces the identity of the last card...find it!
+        :param card1: A card in the set
+        :param card2: A card in the set
+        :return: The missing card to complete the set
+        """
+        attributes = ['shape', 'color', 'count', 'fill']
+        enums = [Shape, Color, Count, Fill]
+
+        final_card = Card()
+        for attribute, EnumObj in zip(attributes, enums):
+            if getattr(card1, attribute) == getattr(card2, attribute):
+                value = getattr(card1, attribute)
+            else:
+                values = [val for val in EnumObj]
+                values.remove(getattr(card1, attribute))
+                values.remove(getattr(card2, attribute))
+                value = values[0]
+            setattr(final_card, attribute, value)
+
+        return final_card
+
+    def combinations_of_three(self, cards):
+        """
+        Purpose: Find all combinations of 3 items in a list.
+        :param cards: A list
+        :return: list(set([item1, item2, item3])): A list of sets of 3 cards, exploring all permutations of the "cards" input
+        """
+        combinations = []
+        length = len(cards)
+        for i in range(length-2):
+            for j in range(i+1,length-1):
+                for k in range(j+1,length):
+                    combinations.append(set([cards[i], cards[j], cards[k]]))
+        return combinations
+
+    def _find_sets_efficient(self, cards):
+        """
+        Purpose: Find all the sets.
+
+        Inputs:
+            -  cards: list(Card) - A list of Cards.
+        Returns:
+            - list(set(Card): Any sets found among those cards.
+
+        Definition of a SET:
+            Playing the game SET, not to be confused with the data type, any 3 cards can form a set if each of the
+            4 properties independantly fulfills one of two conditions:
+                1) That property matches for all 3 cards
+                2) The properties are all unqique between the 3 cards
+
+        ### How it works:
         - Start by grouping cards by the first property (which we will arbitrarily choose as color)
-            - Now we have 3 groups
-                - for each group, 'Set' candidates include all permutations of three cards, representing 3 values being
-                 the same
-                    - on average, each group will have 4 cards, producing 4 potential sets * 3 groups = 12 possibilities
-                - across groups, 'Set' candidates include all permutations with 1 card in each group, representing all
-                  three values being different
-                    - on average each of 3 groups will have 4 cards, so we would need to check 4**3=64 possibilities
-                        - I think we might also be able to do a similar trick to the "2 sum problem", and using
-                          the first 2 cards, figure out what the third must be, and check if it's in the set of the
-                          third group
+            - Now we have 3 groups (we'll have to check for: "same" and "different"
+                - Same: Just check the remaining properties within this subset
+                - Different: All permutations with 1 card from each group
+                    - Use the two-sum trick to loop through the first two groups, and infer the third
                 - On average (more precisely the mode, not the mean, but we're keeping it simple for now), we'll have
                   around 12 + 64 = 72 possibilities ... Is there a way to do better by subgrouping in another way before
                   checking (this is plenty fast enough already, but I enjoy this game, and my clock speed is a bit slower)
-        """
 
-    def _check_set_efficient(self):
-        """
-        - We need to check that each property meets 1 of the following conditions:
-            - all same: 3 different values in the set
-            - all different: 1 unique values in the set
-            - For any 3 cards in a potential set, we can just checking how many unique elements are in a set formed
-              by a particular property.
-                - if len(set(potential_triplet)) != 2: it's a set
-        """
-        raise NotImplementedError
 
-    def _check_set(self, card1, card2, card3):
+        ### Big O Complexity Analysis in time:
+            In practice this take the processing time from ~ 2.5ms to .7ms on my machine. It's tiny compared to the time
+            it takes to perform the image process, but every bit helps.
 
-        # This conditional is intentionally awkward to intuit (that's why the game is fun)
+            Just for kicks, we'll do a little time complexity analysis:
+            Selecting cards is considered a combination/choose without replacement problem, which is governed by:
+            choose(n=number of things to choose from, r=number of things being chosen) = O(n! / (r!(n−r)!))
+            Let m be the number of cards showing:
+            1) Brute Force Method: We just try all combinations of 3 cards.
+                O(n! / (3!*(n-3)!)) = O((n)*(n-1)*(n-2)/6) ~ n^3/6
+               - Standard board is 12 cards: 12! / (3!9!) = 220
+               - Extended board is 15 cards: 15! / (3!12!) = 455
+               - Full Deck:                  81! / (3!*78!) = 85320
+
+            2) Efficient:
+                  Top Level grouping into ~n/3 (on average, some will be larger, and some smaller)
+                      Same: For each of 3 groups choose(n/3,r) = 3*(n/3)! / (r!((n/3)−r)!)
+                      Different: Across 2 of the 3 groups, try all combinations with replacement: n/3*n/3 (and check for answer in dict)
+                  O( 3*(n/3)! / (r!(n/3-r!)) + (n/3)^2 )
+                  Considering cards chosen(r) is always 3, and letting m = n/3, this reduces to:
+                  O( 3*(m)! / (3!(m-3!)) + (m)^2 )
+                  = O( 3*m*(m-1)*(m-2)/6 + m^2) )
+                  = O(m^3/2+ m^2) = m^3/2
+                  = O(n^3/(2*3^3) ~ n^3 / 54
+                  Comparing to the brute force solution...we haven't saved much, maybe a constant factor of ~9 .
+                  This doesn't matter to the computer, but it might help win a game with your friends :)
+               - Standard board is 12 cards: 3 * (12/3)! / (3! * (12/3-3)!) + (12/3)^2 = 3*4! / (3!*1!) + 4^2 = 28
+               - Extended board is 15 cards: 3 * (15/3)! / (3! * (15/3-3)!) + (15/3)^2 = 55
+               - Full Deck:                  3 * (81/3)! / (3! * (81/3-3)!) + (81/3)^2 = 9504
+
+        """
+        red_cards = [card for card in cards if card.color == Color.red]
+        green_cards = [card for card in cards if card.color == Color.green]
+        purple_cards = [card for card in cards if card.color == Color.purple]
+
+        valid_sets = []
+
+        # same
+        for color_matched_cards in [red_cards, green_cards, purple_cards]:
+            potential_sets = self.combinations_of_three(color_matched_cards)
+            for potential_set in potential_sets:
+                if self._check_set(potential_set):
+                    valid_sets.append(potential_set)
+
+        # different
+        purple_cards = set(purple_cards) # index lookup is much faster than looping through a list
+        for red_card in red_cards:
+            for green_card in green_cards:
+                missing_card = self.find_third_card(red_card, green_card)
+                if missing_card in purple_cards:
+                    valid_sets.append(set([red_card, green_card, missing_card]))
+
+        return valid_sets
+
+    def _check_set(self, set_of_cards):
+        """
+        - Each property needs to meet 1 of the following conditions:
+            1) all same: 3 unique values in the set
+            2) all different: 1 unique values in the set
+            -> 1 & 2 together imply we just need to check len(unique_attributes) == 2
+        """
         attributes = ['shape', 'color', 'count', 'fill']
 
-        # Any unidentified attribute is assumed to be false
-        if( None in [getattr(card1, attribute) for attribute in attributes] ):
-            return False
-
         # Check for set (each card must match or all 3 must be unique). Check each attribute independently
+        card1, card2, card3 = [card for card in set_of_cards]
         for attribute in attributes:
-            all_same_condition =   (getattr(card1, attribute) == getattr(card2, attribute) and
-                                    getattr(card1, attribute) == getattr(card3, attribute) )
-            all_different_condition =  (getattr(card1, attribute) != getattr(card2, attribute) and
-                                        getattr(card1, attribute) != getattr(card3, attribute) and
-                                        getattr(card2, attribute) != getattr(card3, attribute) )
-            if(all_same_condition or all_different_condition):
-                pass    #need all attributes to be True for a set
-            else:
+            attributes = set([getattr(card1, attribute), getattr(card2, attribute), getattr(card3, attribute)])
+            if len(attributes) == 2:
                 return False
-
-        #All attributes are True
         return True
+
+    # def _check_set_explicit(self, card1, card2, card3):
+    #     """
+    #     Purpose: This checks each possible combination explicitly (all equal, and all different).
+    #       There is a much cleaner way with sets, so I'm deprecating this.
+    #     """
+    #
+    #     # This conditional is intentionally awkward to intuit (that's why the game is fun)
+    #     attributes = ['shape', 'color', 'count', 'fill']
+    #
+    #     # Any unidentified attribute is assumed to be false
+    #     if( None in [getattr(card1, attribute) for attribute in attributes] ):
+    #         return False
+    #
+    #     # Check for set (each card must match or all 3 must be unique). Check each attribute independently
+    #     for attribute in attributes:
+    #         all_same_condition =   (getattr(card1, attribute) == getattr(card2, attribute) and
+    #                                 getattr(card1, attribute) == getattr(card3, attribute) )
+    #         all_different_condition =  (getattr(card1, attribute) != getattr(card2, attribute) and
+    #                                     getattr(card1, attribute) != getattr(card3, attribute) and
+    #                                     getattr(card2, attribute) != getattr(card3, attribute) )
+    #         if(all_same_condition or all_different_condition):
+    #             pass    #need all attributes to be True for a set
+    #         else:
+    #             return False
+    #
+    #     #All attributes are True
+    #     return True
 
 # TODO: Consider a better place for this function, but this will do for now
 def deal(n):
@@ -109,6 +217,8 @@ def deal(n):
 
 
 if __name__ == "__main__":
+
+    ### Setup
     n = 12
     cards = deal(n)
     assert(len(cards) == n) # n cards dealt
@@ -117,18 +227,69 @@ if __name__ == "__main__":
     # This isn't much of a unit test, but it's a good sanity check
     player = SetPlayer()
     sets = player.find_sets(cards)
+
+
+    ### Test for set finder (human sanity check - not a unit test)
     for s in sets:
         print(s)
 
-    # this is purely because I'm curious about the odds
-    set_histogram = {i:0 for i in range(20)}
-    n = 15
-    for i in range(10000):
+
+    ### Test combinations_of_three
+    combinations = player.combinations_of_three([1,2,3,4,5])
+    assert(combinations[0] == set([1,2,3]))
+    assert(combinations[1] == set([1,2,4]))
+    assert(combinations[2] == set([1,2,5]))
+    assert(combinations[3] == set([1,3,4]))
+    assert(combinations[4] == set([1,3,5]))
+    assert(combinations[5] == set([1,4,5]))
+    assert(combinations[6] == set([2,3,4]))
+    assert(combinations[7] == set([2,3,5]))
+    assert(combinations[8] == set([2,4,5]))
+    assert(combinations[9] == set([3,4,5]))
+
+    ### Test _find_set_efficient
+    # Brute force works (I've tested it manually quite a bit)...Let's use it to test the faster methods
+    n = 12
+    for i in range(10):
         cards = deal(n)
-        sets = player.find_sets(cards)
+        brute = player._find_sets_brute_force(cards)
+        efficient = player._find_sets_efficient(cards)
+
+        assert(len(efficient) ==  len(brute))
+        for s in efficient:
+            if not s in brute:
+                print(brute)
+                print(efficient)
+                raise ValueError(f"Brute and Efficient solutions do not match...\nBrute: {brute}\n Efficient: {efficient}\n")
+
+
+
+    import time
+    tic = time.perf_counter()
+    # this is purely because I'm curious about the odds
+    histogram_of_sets = {i:0 for i in range(50)}
+    n = 12
+    for i in range(1000):
+        cards = deal(n)
+        sets = player._find_sets_efficient(cards)
+        # sets = player._find_sets_brute_force(cards)
         sets_discovered = 0
         for s in sets:
             sets_discovered += 1
-        set_histogram[sets_discovered] += 1
-    for num_sets, num_games in set_histogram.items():
+        histogram_of_sets[sets_discovered] += 1
+
+    toc = time.perf_counter()
+    print(toc-tic)
+
+    patience = 2
+    zero_count = 0
+    for num_sets, num_games in histogram_of_sets.items():
         print(f"Found {num_sets} in {num_games} games.")
+
+        if num_games == 0:
+            zero_count += 1
+        else:
+            zero_count = 0
+
+        if zero_count >= patience:
+            break

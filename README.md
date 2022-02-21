@@ -37,6 +37,19 @@ yellow, indoor lighting. The color of the striped and empty purple and greens be
 well. If I add it, it will just be for fun.
 - Script env setup
 
+## File Clean-up Status:
+- Camera.py: Good enough for now
+- Card.py: Good enough for now
+- CardAnalyzer.py: **Needs a lot of work**
+- Code Snippets.py: *Everything commented out (might delete)*
+- colorlabeler.py: **Needs a lot of work**
+- FindCards.py: *Just delete it, I think? No usages right now.*
+- ImageExtractionTools.py: *Just delete, I think?  No usages right now.*
+- ImageExtractor.py: **Needs review**
+- MainSet.py: Good enough for now
+- SetPlayer.py: Good enough for now...minor clean-up of comments
+- Visualizer.py: Looks ok
+
 # Getting Started
 This is a lot of fun, and pretty easy to use. The only trick is setting up the environment dependencies (see below).
 

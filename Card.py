@@ -52,7 +52,7 @@ class Card:
         self.index = index
 
     def __repr__(self):
-        return (repr(self.shape) + repr(self.color) + repr(self.count) + repr(self.fill))
+        return (repr(self.shape) + repr(self.color) + repr(self.count) + repr(self.fill))[:-1]
 
     def __hash__(self):
         return hash((self.shape.value, self.color, self.count, self.fill))

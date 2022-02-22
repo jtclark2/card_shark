@@ -102,6 +102,8 @@ class ImageExtractor:
             if card is not None:
                 cards.append(card)
 
+
+
         return cards
 
     def locate_ROIs(self, image):

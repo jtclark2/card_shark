@@ -31,8 +31,15 @@ class Visualizer:
                              contourIdx=card.index,
                              color=color,
                              thickness=line_thickness)
-            if label:
-                image = Visualizer._annotate_card(image, card, contours[card.index])
+            if label and contours is not None:
+                # TODO: Try to replicate Error "TypeError: list indices must be integers or slices, not NoneType"
+                try:
+                    image = Visualizer._annotate_card(image, card, contours[card.index])
+                except:
+                    print("***********Index:", card.index) # This is None...not sure how, but it is
+                    print("***********Card:", card)
+                    # print("***********Contour:", contours)
+                    raise
         if(flip):
             image = cv2.flip(image, -1)
 
@@ -55,7 +62,7 @@ class Visualizer:
 
         Side Effects:
             - Plots cards
-            - Is slow / blocking. Not recommended for use with live video
+            - Blocking: Not recommended for use with live video
         :param images: Images of cards to be plotted
         :return: None
         """

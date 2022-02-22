@@ -126,6 +126,10 @@ class SetPlayer:
                - Full Deck:                  3 * (81/3)! / (3! * (81/3-3)!) + (81/3)^2 = 9504
 
         """
+        # TODO: Should we fix this here, or just in the enumerations?
+        if len(cards) != len(set(cards)):
+            return [] # a duplicate card implies our identification failed
+
         red_cards = [card for card in cards if card.color == Color.red]
         green_cards = [card for card in cards if card.color == Color.green]
         purple_cards = [card for card in cards if card.color == Color.purple]
@@ -140,11 +144,12 @@ class SetPlayer:
                     valid_sets.append(potential_set)
 
         # different
-        purple_cards = set(purple_cards) # index lookup is much faster than looping through a list
+        purple_cards = {card: card for card in purple_cards}# set(purple_cards) # index lookup is much faster than looping through a list
         for red_card in red_cards:
             for green_card in green_cards:
                 missing_card = self.find_third_card(red_card, green_card)
                 if missing_card in purple_cards:
+                    missing_card = purple_cards[missing_card] # TODO: INDEX??? for display purposes...use the real card, not the one you create!!!!
                     valid_sets.append(set([red_card, green_card, missing_card]))
 
         return valid_sets
@@ -159,40 +164,17 @@ class SetPlayer:
         attributes = ['shape', 'color', 'count', 'fill']
 
         # Check for set (each card must match or all 3 must be unique). Check each attribute independently
-        card1, card2, card3 = [card for card in set_of_cards]
+        try:
+            card1, card2, card3 = [card for card in set_of_cards]
+        except:
+            # TODO: This catch only here for testing, after seeing that only 2 values were unpacked instead of 3
+            print([card for card in set_of_cards])
+            raise
         for attribute in attributes:
             attributes = set([getattr(card1, attribute), getattr(card2, attribute), getattr(card3, attribute)])
             if len(attributes) == 2:
                 return False
         return True
-
-    # def _check_set_explicit(self, card1, card2, card3):
-    #     """
-    #     Purpose: This checks each possible combination explicitly (all equal, and all different).
-    #       There is a much cleaner way with sets, so I'm deprecating this.
-    #     """
-    #
-    #     # This conditional is intentionally awkward to intuit (that's why the game is fun)
-    #     attributes = ['shape', 'color', 'count', 'fill']
-    #
-    #     # Any unidentified attribute is assumed to be false
-    #     if( None in [getattr(card1, attribute) for attribute in attributes] ):
-    #         return False
-    #
-    #     # Check for set (each card must match or all 3 must be unique). Check each attribute independently
-    #     for attribute in attributes:
-    #         all_same_condition =   (getattr(card1, attribute) == getattr(card2, attribute) and
-    #                                 getattr(card1, attribute) == getattr(card3, attribute) )
-    #         all_different_condition =  (getattr(card1, attribute) != getattr(card2, attribute) and
-    #                                     getattr(card1, attribute) != getattr(card3, attribute) and
-    #                                     getattr(card2, attribute) != getattr(card3, attribute) )
-    #         if(all_same_condition or all_different_condition):
-    #             pass    #need all attributes to be True for a set
-    #         else:
-    #             return False
-    #
-    #     #All attributes are True
-    #     return True
 
 # TODO: Consider a better place for this function, but this will do for now
 def deal(n):

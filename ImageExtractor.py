@@ -20,6 +20,10 @@ class ROI:
         self.vertices = vertices
 
 class ImageExtractor:
+    """
+    This class is designed to find contours around cards, isolate them. Using those contours, the cards are isolated
+    and projected into standardized rectangular images, which can be further analyzed.
+    """
 
     def __init__(self):
         self.ROIs = []
@@ -27,7 +31,7 @@ class ImageExtractor:
         self.card_images = []
 
     ############Math Helper Methods#########
-    def _get_angle(self, pt1, pt2):
+    def _get_direction_degrees(self, pt1, pt2):
         x = pt2[0] - pt1[0]
         y = pt2[1] - pt1[1]
         if (x == 0):
@@ -55,7 +59,6 @@ class ImageExtractor:
         plt.hist(image.ravel(), 255, [0, 255]);
         plt.show(False)
         pass
-
 
     # Image search and extraction pipeline
     def pre_process_image(self, image, width=None):
@@ -145,7 +148,7 @@ class ImageExtractor:
             contours = contours[1]
         if imutils.is_cv4():
             contours = contours[0]
-        # contours = contours[0] if imutils.is_cv2() else contours[1]
+
         ROIs = []
         self.filtered_contours = []
         for idx, contour in enumerate(contours):
@@ -188,7 +191,10 @@ class ImageExtractor:
 
     def _order_vertices(self, vertices):
         """
-        Opertaion: The vertices have a few challenges, that we want to tidy up before proceeding.
+        TODO: Improve docs...I'm pretty sure this method ensures the corners of the card are listed in
+        counterclockwise order> I think I wrote it so that the projection of the cards would be consistent.
+
+        Operation: The vertices have a few challenges, that we want to tidy up before proceeding.
             1) There is an extra layer of indexing (and it's a middle layer, not outer). I need to
                 got back and clean it up, but it was noted in this v2 vs v3 conditional, that
                 is not worth digging into right now (maybe ever).
@@ -222,18 +228,18 @@ class ImageExtractor:
 
         # Sorting angles: Order matters when running transforms
         # but I need to associate with vertices...so I use a built in sort and key lookup
-        angle_list = []
+        dir_list = []
         angle_dict = {}
         for vertex in vertices:
-            angle = self._get_angle(center, vertex)
-            angle_list.append(angle)
-            angle_dict[angle] = vertex
+            dir = self._get_direction_degrees(center, vertex)
+            dir_list.append(dir)
+            angle_dict[dir] = vertex
 
-        angle_list.sort()
+        dir_list.sort()
 
         point = []
-        for angle in angle_list:
-            point.append(angle_dict[angle])
+        for dir in dir_list:
+            point.append(angle_dict[dir])
 
         side1 = self._get_distance(point[0], point[1])
         side2 = self._get_distance(point[1], point[2])

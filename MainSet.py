@@ -19,7 +19,6 @@ color_table = {
 image_extractor = ImageExtractor.ImageExtractor()
 card_analyzer = CardAnalyzer.HandTunedCardAnalyzer()  # Feature analyzer is better name
 player = SetPlayer.SetPlayer()
-# visualizer = Visualizer.Visualizer()
 
 IMG_PATH = "ImageLibrary/IMG_6394.JPG"
 IMG_DIR ="ImageLibrary/%s.jpg"
@@ -40,6 +39,9 @@ def image_pipeline(image, image_extractor, color_table, player):
 
     image = Visualizer.overlay_color_key(display_image, color_table)
 
+    # TODO: cv2.resize causes some aliasing, but removes the imutils dependency (and that library has proven pretty unstable)
+    # shape = image.shape
+    # image = cv2.resize(image, (500, 500*shape[0]//shape[1]))
     image = imutils.resize(image, width=500)
     cv2.imshow("Rich Diagnostic View", image)
 
@@ -63,7 +65,7 @@ if IMG_SOURCE == "camera":
         if image is None:
             break
 
-        image_pipeline(image, image_extractor, color_table, player, visualizer)
+        image_pipeline(image, image_extractor, color_table, player)
 
         key_input = cv2.waitKey(1)
 
@@ -75,20 +77,3 @@ if IMG_SOURCE == "camera":
             cam.release()
             cv2.destroyAllWindows()
             break
-
-
-##################Main######################
-# Configure
-# image_source = Camera
-#
-# get_image
-# while image is not None:
-    # get_image
-    # pre_process_image
-    # ROIs, images = detect_cards (image)
-    # cards = identify_cards(images)
-    # sets = determine_sets(cards)
-    # display_contours() # probably comment out
-    # display_cards()
-    # display_sets()
-    # detect_special_keys()

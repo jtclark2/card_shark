@@ -6,67 +6,8 @@ import numpy as np
 import imutils
 import os
 
-#min_curvature, aka "epsilon" is the allowable curvature as a fraction of the arclength
 
-MIN_SHAPE_CURVATURE = .02
-MIN_SHAPE_SIZE = 10000    #TODO : add max shape size too (sometimes the shapes get combined in blurry images)
-
-SAVE_PATH = "ImageLibrary/%s_%s.jpg"
-
-#TODO: Lots of times, it finds the card and extracts the image, but doesn't show me the outline...
-#TODO: Originally, I though it wasn't finding the card, but it must be...I need to investigate
-#TODO: However, it may have been related to the Attribute finders returning None...which I've stabilized now?
-class AbstractCardAnalyzer:
-
-    def identify_card(self, image):
-        """
-        Returns a card (which could be specific "Card" class, or a generic Card.
-        :param image:
-        :return:
-        """
-        raise NotImplementedError
-
-    def copy_with_mask(self, image, mask):
-        """
-        Create a copy of an image that has the input image values in the feature region,
-        and zeros in the background / masked region.
-
-        :param image: Image to be copied.
-        :param mask: Input mask (background / mask = 0, feature_pixels = 255)
-        :return: masked image
-        """
-        masked_image = np.zeros(image.shape, np.uint8)
-        idx = (mask != 0)
-        masked_image[idx] = image[idx]
-        return masked_image
-
-    def create_contrast_mask(self, image):
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        ret, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        # find contours in the thresholded image and initialize the
-        # shape detector
-        contours = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
-                                    cv2.CHAIN_APPROX_SIMPLE)
-        contours = contours[0] if imutils.is_cv2() else contours[1]
-        mask = np.zeros(gray.shape, np.uint8)
-        cv2.drawContours(mask, contours, -1, 255, -1)
-
-        return mask
-
-    def _distance(self, x, y=None):
-        if(y is None):  #Find magnitude by comparing to 0
-            y = [0]*len(x)
-
-        assert(len(x) == len(y))
-
-        sum = 0
-        for (a,b) in zip(x,y):
-            sum += (a-b)**2
-        return sum**.5
-
-
-class HandTunedCardAnalyzer(AbstractCardAnalyzer):
+class HandTunedCardAnalyzer:
     """
     This analyzer is created with hand-tuned feature extraction operations. That includes contours and
     metrics derived from those contours, line fits, vertex counting, template matching, etc.
@@ -106,8 +47,7 @@ class HandTunedCardAnalyzer(AbstractCardAnalyzer):
 
     def __init__(self):
         self.mask_library = []
-        SAVE_PATH = "ImageLibrary/%s_%s.jpg"
-        dir = "ImageSet/%s.jpg"
+        SAVE_PATH = "CardTemplates/%s_%s.jpg"
         for shape in Shape: # ('stadium', 'wisp', 'diamond'):
             for count in Count: # ('one', 'two', 'three'):
                 path = SAVE_PATH % (shape.value, count.value)
@@ -137,33 +77,58 @@ class HandTunedCardAnalyzer(AbstractCardAnalyzer):
         self.cal_sum = np.array([0., 0., 0.])  # for the calibration routine
         self.count = 0
 
-    def calibrate_colors(self, key, value):
-        if key is 'reset':
-            self.cal_sum = np.array([0., 0., 0.])
-            self.count = 0
-            return
+    def _distance(self, x, y=None):
+        if(y is None):  #Find magnitude by comparing to 0
+            y = [0]*len(x)
 
-        # Python is struggling with comparison of tuples, so we convert to strings first
-        # ...not quite as good as comparing the objects, but it will work
+        assert(len(x) == len(y))
 
+        sum = 0
+        for (a,b) in zip(x,y):
+            sum += (a-b)**2
+        return sum**.5
 
-        if (repr(key) in [repr(color) for color in self.colors]):
-            self.cal_sum = np.array( [v+s for (v,s) in zip(value,self.cal_sum)] )
-            self.count += 1
-            self.colors[key] = self.cal_sum / self.count
-            print("%s, %s, %s" % (self.colors[key][0], self.colors[key][1], self.colors[key][2]) )
+    def copy_with_mask(self, image, mask):
+        """
+        Create a copy of an image that has the input image values in the feature region,
+        and zeros in the background / masked region.
 
-        if (repr(key) in [repr(color) for color in self.edge_colors]):
-            self.cal_sum = np.array( [v+s for (v,s) in zip(value,self.cal_sum)] )
-            self.count += 1
-            self.edge_colors[key] = self.cal_sum / self.count
-            print("edge: %s, %s, %s" % (self.edge_colors[key][0], self.edge_colors[key][1], self.edge_colors[key][2]) )
+        :param image: Image to be copied.
+        :param mask: Input mask (background / mask = 0, feature_pixels = 255)
+        :return: masked image
+        """
+        masked_image = np.zeros(image.shape, np.uint8)
+        idx = (mask != 0)
+        masked_image[idx] = image[idx]
+        return masked_image
 
+    ### TODO: Strongly consider re-implementing, but it's just adding confusion for now
+    # def calibrate_colors(self, key, value):
+    #     if key is 'reset':
+    #         self.cal_sum = np.array([0., 0., 0.])
+    #         self.count = 0
+    #         return
+    #
+    #     # Python is struggling with comparison of tuples, so we convert to strings first
+    #     # ...not quite as good as comparing the objects, but it will work
+    #
+    #
+    #     if (repr(key) in [repr(color) for color in self.colors]):
+    #         self.cal_sum = np.array( [v+s for (v,s) in zip(value,self.cal_sum)] )
+    #         self.count += 1
+    #         self.colors[key] = self.cal_sum / self.count
+    #         print("%s, %s, %s" % (self.colors[key][0], self.colors[key][1], self.colors[key][2]) )
+    #
+    #     if (repr(key) in [repr(color) for color in self.edge_colors]):
+    #         self.cal_sum = np.array( [v+s for (v,s) in zip(value,self.cal_sum)] )
+    #         self.count += 1
+    #         self.edge_colors[key] = self.cal_sum / self.count
+    #         print("edge: %s, %s, %s" % (self.edge_colors[key][0], self.edge_colors[key][1], self.edge_colors[key][2]) )
 
     def identify_card(self, card):
         """
-        Operation: Identify the properties of the incoming card image
-        :param image: The input image to be processed.
+        Purpose: Identify the properties of the incoming card image
+        :param image: Rectangular image of a card.
         :return: Card, with appropriately defined color, shape, fill, and count
         """
 
@@ -174,108 +139,50 @@ class HandTunedCardAnalyzer(AbstractCardAnalyzer):
         contours = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
                                     cv2.CHAIN_APPROX_SIMPLE)
 
-        # TODO: I've copied this at least twice - make a function for it
-        # determine which version of opencv is running...apparently the contour format has changed a few times.
         if imutils.is_cv2():
             contours = contours[0]
         if imutils.is_cv3():
             contours = contours[1]
         if imutils.is_cv4():
             contours = contours[0]
-        # contours = contours[0] if imutils.is_cv2() else contours[1]
 
-        SYMBOL_SIZE_THRESH = 1000
-
-        contours = [c for c in contours if cv2.contourArea(c) >= SYMBOL_SIZE_THRESH]
-
+        MIN_SHAPE_AREA = 1000
+        contours = [c for c in contours if cv2.contourArea(c) >= MIN_SHAPE_AREA]
 
         shape = gray.shape
         mask = np.zeros(shape, np.uint8)
-        # cv2.fillPoly(mask, pts=contours, color=(1))
         cv2.drawContours(mask, contours, -1, 255, -1)
 
-        # card.count = self._identify_count(contours)
-        # card.shape = self._identify_shape(contours)
         (card.count, card.shape, _) = self._identify_count_and_shape(mask)
 
-        # card.fill = self._identify_fill(card.image, mask, contours)
-        # card.color = self._identify_color(card.image, mask, contours)
         (card.color, card.fill) = self._identify_color_and_fill(card.image, mask, contours)
 
         return card
 
-    def _identify_count_and_shape(self, source_image):
+    def _identify_count_and_shape(self, mask):
         """
-        This is a simple template match on a mask. Rather than trying to extract and overlay
-        a single contour, this seemed pretty straightforward.
+        Purpose: Identify count and shape of the symbols on a card. There are only 9 possible silhouettes,
+            describes by the combinations of 3 shapes and 3 counts. Since this is a reasonable number, it is reasonably
+            easy to save idealized versions of these, and compare all future possibilities to those.
 
-        A bit slower, but robust to lighting, and much more stable than the other hand-tuned attempts.
+            This has proven to be very robust to lighting changes, and much more stable than the other hand-tuned attempts
+            at interpreting contours as shapes.
 
         :param mask: Input mask (background = 0, feature_pixels = 255)
-        :return: (count, shape)
+        :return: (count, shape, qualtiy_score)
         """
 
-        #TODO: Recreate library raw
-        #Eroded when gathering source images, so I'm doing it here too (should have should raw)
-        source_image = cv2.erode(source_image, None, iterations=5)  # Avoid the edge...just want the texture
+        #TODO: Recreate library raw: Eroded when gathering source images, so we apply same here
+        mask = cv2.erode(mask, None, iterations=5)  # Avoid the edge...just want the texture
 
         best_match_score = -1000
         for template_card in self.mask_library:
-            match_score = cv2.matchTemplate(source_image, template_card.image, cv2.TM_CCOEFF_NORMED)
-            # cv2.imshow("source", source_image)
-            # cv2.imshow("library", template_card.image)
-            # cv2.waitKey(200)
+            match_score = cv2.matchTemplate(mask, template_card.image, cv2.TM_CCOEFF_NORMED)
 
             if match_score > best_match_score:
                 best_match_score = match_score
                 best_match_card = template_card
-        # else:
-        #     return (None, None, best_match_score)
-        # print(template_card, "\t", match_score)
         return (best_match_card.count, best_match_card.shape, best_match_score)
-
-    def _identify_count(self, contours):
-        """
-        Simply count the contours found.
-        :param contours:
-        :return:
-        """
-        count = len(contours)
-        if count == 1:
-            return Count.one
-        elif count == 2:
-            return Count.two
-        elif count == 3:
-            return Count.three
-        else:
-            return
-
-    def _identify_shape(self, contours):
-        # TODO: Each card has 1, 2, or 3 symbols. We could repeat on each and copmare, but lets start simple
-        shape = None
-        total_area = 0
-        for c in contours:
-            if cv2.contourArea(c) >= MIN_SHAPE_SIZE:
-
-                #Shape Contour Metrics
-                area = cv2.contourArea(c)
-                total_area += area
-
-                perimeter = cv2.arcLength(c, True)
-                # vertices = cv2.approxPolyDP(c, MIN_SHAPE_CURVATURE * perimeter, True)
-                hull = cv2.convexHull(c)
-                convex_vertices = cv2.approxPolyDP(hull, MIN_SHAPE_CURVATURE * perimeter, True)
-                # area_convex = cv2.contourArea(hull)
-
-                ###Find Shape
-                if (len(convex_vertices) == 4):
-                    shape = Shape.diamond
-                elif ( (perimeter / area) > .027 ):  #TODO: currently dependant on image scale
-                    shape = Shape.wisp
-                else:
-                    shape = Shape.stadium
-
-        return shape
 
     def find_best_match(self, signature, lookup_table, worst_allowable_match = 1000000):
         """
@@ -357,124 +264,100 @@ class HandTunedCardAnalyzer(AbstractCardAnalyzer):
 
         return (color, fill)
 
-    def _identify_fill(self, gray, mask, contours):
-        # stripes have std dev of at least 9.9 in my small sample size, and all others are < 3.4
-        # Let's start with a thresh of 7
-
-        # Similar process with lighting, though variations in intensity may become a problem...
-        # Second pass, I could normalize off the outer edge of the card (which is always empty)
-
-        mask = cv2.erode(mask, None, iterations=10)
-        (mean, std_dev,) = cv2.meanStdDev(gray, mask=mask)
-
-        ###Find Fill
-        # print(mean, std_dev)
-        if (std_dev <10):
-            fill = Fill.solid
-        elif (mean < 20):
-            fill = Fill.striped
-        else:
-            fill = Fill.empty
-
-        return fill
-
-        # cv2.imshow("mask", inner_mask)
-        # cv2.imshow("inv_mask", outer_mask)
-
-
-
-        # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # (total_mean, total_std_dev) = cv2.meanStdDev(gray)
-        # (inner_mean, inner_std_dev) = cv2.meanStdDev(gray, mask=outer_mask)
-        # (outer_mean, outer_std_dev) = cv2.meanStdDev(gray, mask=inner_mask)
-        # # print( inner_mean / outer_mean )
-        #
-        # relative_luminosity = inner_mean / outer_mean
-        # if (relative_luminosity > .97):
-        #     fill = Fill.empty
-        # elif (relative_luminosity > .75):
-        #     fill = Fill.striped
-        # else:
-        #     fill = Fill.solid
-        # # print(relative_luminosity)
-
-    def _identify_color(self, image, mask, contours):
-
-        cl = ColorLabeler()
-        color = cl.label(image, contours)
-
-        if(color == "red"):
-            return Color.red
-        if(color == "green"):
-            return Color.green
-        if(color == "blue"):    #Todo: Yeah, I need to remap (2 wrongs make a right...kind of)
-            return Color.purple
-
-class TemplateAnalyzer(AbstractCardAnalyzer):
-    """
-    The TemplateAnalyzer is meant to be a highly generalizeable tool, that does a simple template match,
-    comparing the input card against a library of 'known cards'. The analyzer is responsible for
-    determining which card is the best match, and how good that match is.
-    """
-
-    #TODO: This analyzer kind of sucks at the moment, but could be powerful
-    #   -1) This analyzer handles real-world lighting variations terribly!
-    #       We could try to normalize against the white card background, or operate in a more
-    #       robust color-space, but for now, it kind of stinks
-    #   -2) It's a bit expensive to compare against all possible images
-    #       I'm not sure if this is really an issue, but it's definitely on my mind, and worth further exploration
-    #   +3) Still worth exploring though
-    #       Under well-controlled lighting / background, if 1 second cycle time was reasonable, this could
-    #       be a very quickly implemented solution, and adding new cards to the 'library' would be fast,
-    #       require only a single image, and basically no manual tuning/customization
-
-    SYMBOL_SIZE_THRESH = 1000
-
-    def process_image(self, image):
-        """
-        Operation: Identify the properties of the incoming card image
-        :param image: The input image to be processed.
-        :return: A 3D mask (really 2.5D) of the image
-        """
-
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        ret, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-        mask_3D = np.zeros(image.shape, np.uint8)
-
-        contours = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
-                                    cv2.CHAIN_APPROX_SIMPLE)
-        contours = contours[0] if imutils.is_cv2() else contours[1]
-        contours = [c for c in contours if cv2.contourArea(c) >= self.SYMBOL_SIZE_THRESH]
-
-        cv2.drawContours(mask_3D, contours, -1, [255,255,255], -1)
-
-        #Crude smoothing method
-        #TODO: would interleaving these in a loop make it more smooth and less "blocky"
-        mask_3D = cv2.erode(mask_3D, None, iterations=10)
-        mask_3D = cv2.dilate(mask_3D, None, iterations=10)
-
-        return mask_3D
-
-    def identify_card(self, image):
-
-        mask = self.process_image(image)
-        masked_image = self.copy_with_mask(image, mask)
-
-        directory_path = r"./ImageSet/Verified/"
-        paths = os.listdir(directory_path)
-        for filename in os.listdir(r"./ImageSet/Verified/"):
-            path = directory_path + filename
-            template = cv2.imread(path)
-            masked_template = self.copy_with_mask(template, mask)
-            res = cv2.matchTemplate(masked_image, masked_template, cv2.TM_CCOEFF_NORMED)
-
-            print(100*(1-res))
-            cv2.imshow("template", masked_template)
-            cv2.imshow("camera", masked_image)
-
-            break   #Just 1 test image for now
-
-        return Card(Shape.diamond, Color.purple, Count.one, Fill.solid)
-        # return Card(shape, color, count, fill)
+    ### The following methods were my first attempts...I got too sentimental to delete them
+    # def _identify_count(self, contours):
+    #     """
+    #     Simply count the contours found.
+    #     :param contours:
+    #     :return:
+    #     """
+    #     count = len(contours)
+    #     if count == 1:
+    #         return Count.one
+    #     elif count == 2:
+    #         return Count.two
+    #     elif count == 3:
+    #         return Count.three
+    #     else:
+    #         return
+    #
+    # def _identify_shape(self, contours):
+    #     MIN_SHAPE_CURVATURE = .02
+    #     MIN_SHAPE_SIZE = 10000
+    #     shape = None
+    #     total_area = 0
+    #     for c in contours:
+    #         if cv2.contourArea(c) >= MIN_SHAPE_SIZE:
+    #
+    #             #Shape Contour Metrics
+    #             area = cv2.contourArea(c)
+    #             total_area += area
+    #
+    #             perimeter = cv2.arcLength(c, True)
+    #             # vertices = cv2.approxPolyDP(c, MIN_SHAPE_CURVATURE * perimeter, True)
+    #             hull = cv2.convexHull(c)
+    #             convex_vertices = cv2.approxPolyDP(hull, MIN_SHAPE_CURVATURE * perimeter, True)
+    #             # area_convex = cv2.contourArea(hull)
+    #
+    #             ###Find Shape
+    #             if (len(convex_vertices) == 4):
+    #                 shape = Shape.diamond
+    #             elif ( (perimeter / area) > .027 ):  #TODO: currently dependant on image scale
+    #                 shape = Shape.wisp
+    #             else:
+    #                 shape = Shape.stadium
+    #
+    #     return shape
+    #
+    # def _identify_fill(self, gray, mask, contours):
+    #     # stripes have std dev of at least 9.9 in my small sample size, and all others are < 3.4
+    #     # Let's start with a thresh of 7
+    #
+    #     # Similar process with lighting, though variations in intensity may become a problem...
+    #     # Second pass, I could normalize off the outer edge of the card (which is always empty)
+    #
+    #     mask = cv2.erode(mask, None, iterations=10)
+    #     (mean, std_dev,) = cv2.meanStdDev(gray, mask=mask)
+    #
+    #     ###Find Fill
+    #     # print(mean, std_dev)
+    #     if (std_dev <10):
+    #         fill = Fill.solid
+    #     elif (mean < 20):
+    #         fill = Fill.striped
+    #     else:
+    #         fill = Fill.empty
+    #
+    #     return fill
+    #
+    #     # cv2.imshow("mask", inner_mask)
+    #     # cv2.imshow("inv_mask", outer_mask)
+    #
+    #
+    #
+    #     # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    #     # (total_mean, total_std_dev) = cv2.meanStdDev(gray)
+    #     # (inner_mean, inner_std_dev) = cv2.meanStdDev(gray, mask=outer_mask)
+    #     # (outer_mean, outer_std_dev) = cv2.meanStdDev(gray, mask=inner_mask)
+    #     # # print( inner_mean / outer_mean )
+    #     #
+    #     # relative_luminosity = inner_mean / outer_mean
+    #     # if (relative_luminosity > .97):
+    #     #     fill = Fill.empty
+    #     # elif (relative_luminosity > .75):
+    #     #     fill = Fill.striped
+    #     # else:
+    #     #     fill = Fill.solid
+    #     # # print(relative_luminosity)
+    #
+    # def _identify_color(self, image, mask, contours):
+    #
+    #     cl = ColorLabeler()
+    #     color = cl.label(image, contours)
+    #
+    #     if(color == "red"):
+    #         return Color.red
+    #     if(color == "green"):
+    #         return Color.green
+    #     if(color == "blue"):    #Todo: Yeah, I need to remap (2 wrongs make a right...kind of)
+    #         return Color.purple

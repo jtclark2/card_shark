@@ -21,33 +21,13 @@ card_analyzer = CardAnalyzer.HandTunedCardAnalyzer()  # Feature analyzer is bett
 player = SetPlayer.SetPlayer()
 
 IMG_NAME = "IMG_6394.JPG"
-# IMG_NAME = "WebCam1.PNG"
-# IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
-# IMG_NAME = ""
+IMG_NAME = "WebCam1.PNG"
+IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
+# IMG_NAME = "RedReadsGreen.jpg" # looks like a rollover error in hue space
 IMG_PATH = f"ImageLibrary/{IMG_NAME}"
 IMG_DIR ="ImageLibrary/%s.jpg"
 # IMG_SOURCE = "saved_image"
-IMG_SOURCE = "saved_image" # "camera" #
-
-# TODO: Move this somewhere else (but it is helping a lot)
-import numpy as np
-def equalize_histogram_layer(img):
-    # This is a little slow...I think it might be worth it, but keep it in mind
-    hist, bins = np.histogram(img.flatten(), 256, [0, 256])
-    cdf = hist.cumsum()
-    cdf_m = np.ma.masked_equal(cdf, 0)
-    cdf_m = (cdf_m - cdf_m.min()) * 255 / (cdf_m.max() - cdf_m.min())
-    cdf2 = np.ma.filled(cdf_m, 0).astype('uint8')
-    equalized_img = cdf2[img]
-    return equalized_img
-
-def equalize_histogram_image(img):
-    equalized_img = np.zeros_like(img)
-    equalized_img[:,:,0] = equalize_histogram_layer(img[:,:,0])
-    equalized_img[:,:,1] = equalize_histogram_layer(img[:,:,1])
-    equalized_img[:,:,2] = equalize_histogram_layer(img[:,:,2])
-    return equalized_img
-
+IMG_SOURCE =  "camera" # "saved_image"
 
 
 
@@ -62,7 +42,6 @@ def image_pipeline(image, image_extractor, color_table, player):
     tic = time.perf_counter()
     # print(f"Time to generate and display frame Time: {time.perf_counter() - tic}")
 
-    # image = equalize_histogram_layer(image)
     images = image_extractor.detect_cards(image)
     cards = image_extractor.identify_cards(images)
     sets = player.find_sets(cards)

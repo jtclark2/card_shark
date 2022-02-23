@@ -6,10 +6,16 @@ class Camera:
         self.cap = cv2.VideoCapture(camera)
 
     def configure(self):
+        """
+        This class was intended to help stabilize the camera. Webcams often perform some light balance and color
+        correction that I was trying to disable. I've found the available features are very specific to the camera,
+        so I've stopped using them for now, but I'll leave this here for the moment.
+        :return:
+        """
         # https://docs.opencv.org/2.4/modules/highgui/doc/reading_and_writing_images_and_video.html
-        # CV_CAP_PROP_POS_MSEC = 0
-        # CV_CAP_PROP_POS_FRAMES = 1
-        # CV_CAP_PROP_POS_AVI_RATIO =  2
+        CV_CAP_PROP_POS_MSEC = 0
+        CV_CAP_PROP_POS_FRAMES = 1
+        CV_CAP_PROP_POS_AVI_RATIO =  2
         CV_CAP_PROP_FRAME_WIDTH = 3
         CV_CAP_PROP_FRAME_HEIGHT = 4
         CV_CAP_PROP_FPS = 5
@@ -31,8 +37,8 @@ class Camera:
         CV_CAP_PROP_BUFFERSIZE = 21
 
         # Intentionally set to specific values
-        self.cap.set(CV_CAP_PROP_FRAME_WIDTH, 1920)
-        self.cap.set(CV_CAP_PROP_FRAME_HEIGHT, 1080)
+        # self.cap.set(CV_CAP_PROP_FRAME_WIDTH, 1920)
+        # self.cap.set(CV_CAP_PROP_FRAME_HEIGHT, 1080)
         # self.cap.set(CV_CAP_PROP_SATURATION, 100) # 0 - 100, values outside this range are ignored
         # self.cap.set(CV_CAP_PROP_HUE, 100)
 
@@ -64,42 +70,3 @@ class Camera:
 
     def release(self):
         self.cap.release()
-
-    # def calibrate(self):
-    #     """
-    #     Probably not going to use this...I'm having some trouble with saturation on my detachable webcam, so
-    #     lots of cards are getting washed out...I hoped to calibrate for lighting changes, but realistically
-    #     the algorithm is quite robust if the data is there. My problems are with oversaturation, and there
-    #     is no way around that in software
-    #     """
-        # cal_lookup = {
-        #      ord('0') : (None, Card.Fill.empty),
-        #      ord('1') : (Card.Color.red, Card.Fill.empty),
-        #      ord('2'): (Card.Color.green, Card.Fill.empty),
-        #      ord('3'): (Card.Color.purple, Card.Fill.empty),
-        #      ord('4'): (Card.Color.red, Card.Fill.striped),
-        #      ord('5'): (Card.Color.green, Card.Fill.striped),
-        #      ord('6'): (Card.Color.purple, Card.Fill.striped),
-        #      ord('7'): (Card.Color.red, Card.Fill.solid),
-        #      ord('8'): (Card.Color.green, Card.Fill.solid),
-        #      ord('9'): (Card.Color.purple, Card.Fill.solid),
-        #      ord('r'): 'reset',
-        # }
-        #
-        # edge_set = (ord('1'), ord('2'), ord('3'))
-        #
-        # key_stroke = (key_input & 0xFF)
-        # if ( key_stroke in cal_lookup): # Calibrate
-        #     if (len(game.card_images) == 1):
-        #         card = Card.Card(index=0, image=game.card_images[0])
-        #         key = cal_lookup[key_input]
-        #         if(key_stroke in edge_set):
-        #             try:
-        #                 value = card_analyzer.corrected_edge_color
-        #                 card_analyzer.calibrate_colors(key=key, value=value)
-        #             except:
-        #                 print("This card does not appear to have fill='Empty'.")
-        #         else: # any other
-        #             value = card_analyzer.corrected_color
-        #             print(value)
-        #             card_analyzer.calibrate_colors(key=key, value=value)

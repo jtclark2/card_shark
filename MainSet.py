@@ -21,29 +21,26 @@ card_analyzer = CardAnalyzer.HandTunedCardAnalyzer()  # Feature analyzer is bett
 player = SetPlayer.SetPlayer()
 
 IMG_NAME = "IMG_6394.JPG"
-IMG_NAME = "WebCam1.PNG"
-IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
+# IMG_NAME = "WebCam1.PNG"
+# IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
 # IMG_NAME = "RedReadsGreen.jpg" # looks like a rollover error in hue space
+IMG_NAME = "CaptureBright.jpg"
+IMG_NAME = "CaptureBackOfBox.jpg"
+
 IMG_PATH = f"ImageLibrary/{IMG_NAME}"
 IMG_DIR ="ImageLibrary/%s.jpg"
 # IMG_SOURCE = "saved_image"
-IMG_SOURCE =  "camera" # "saved_image"
-
-
-
+IMG_SOURCE = "saved_image" # "camera" #
 
 
 
 # Processing Pipeline
 def image_pipeline(image, image_extractor, color_table, player):
 
-    # I ran a few trials for profiling speed...
-    # ...about 10-15% is in the image extraction, 5% in the display, and 80-85 in the card processing
-    tic = time.perf_counter()
-    # print(f"Time to generate and display frame Time: {time.perf_counter() - tic}")
-
     images = image_extractor.detect_cards(image)
+    tic = time.perf_counter()
     cards = image_extractor.identify_cards(images)
+    print(f"Time to generate and display frame Time: {time.perf_counter() - tic}")
     sets = player.find_sets(cards)
 
     display_image = image.copy() # Create a copy to add graphics on top of
@@ -70,7 +67,6 @@ if IMG_SOURCE == "saved_image":
 
     cv2.waitKey(0)
 
-import time
 # Loop image capture and save/quit key interactions
 if IMG_SOURCE == "camera":
     cam = Camera.Camera(1) # Starts at 0 (built-in laptop cam is usually 0, and USB cam is usually 1)

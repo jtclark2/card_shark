@@ -9,6 +9,17 @@ class SetPlayer:
         :return:
             List of sets of 3 cards.
         """
+
+        # Filter out any cards that have unidentified values, as they can't match
+        cards = cards.copy()
+        attributes = ['shape', 'color', 'count', 'fill']
+        for i in range(len(cards)):
+            for attribute in attributes:
+                if(getattr(cards[i], attribute) is None):
+                    cards[i] = None
+                    break
+        cards = [card for card in cards if card is not None]
+
         return self._find_sets_efficient(cards)
 
     def _find_sets_brute_force(self, cards):

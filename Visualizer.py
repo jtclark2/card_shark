@@ -20,7 +20,7 @@ class Visualizer:
                          thickness=line_thickness)
 
     @staticmethod
-    def overlay_cards(cards, image, ROIs, color=[255, 0, 0], line_thickness=1, label = True, flip=False):
+    def overlay_cards(cards, image, ROIs, color=[255, 0, 0], line_thickness=1, show_labels = True, flip=False):
         """
         Apply outline and annotation to cards in image
         """
@@ -31,28 +31,28 @@ class Visualizer:
                              contourIdx=card.index,
                              color=color,
                              thickness=line_thickness)
-            if label and contours is not None:
-                # TODO: Try to replicate Error "TypeError: list indices must be integers or slices, not NoneType"
-                try:
-                    image = Visualizer._annotate_card(image, card, contours[card.index])
-                except:
-                    print("***********Index:", card.index) # This is None...not sure how, but it is
-                    print("***********Card:", card)
-                    # print("***********Contour:", contours)
-                    raise
+            if show_labels and contours is not None:
+                image = Visualizer._annotate_card(image, card, contours[card.index])
         if(flip):
             image = cv2.flip(image, -1)
 
     @staticmethod
-    def overlay_color_key(image, key_dict, display_width = 800):
-        # image = imutils.resize(image, width=display_width)
-        line_spacing = 60 # in pixels
-        x,y = 20, 20
-        for key in key_dict:
-            y += line_spacing
-            cv2.putText(image, key, (x, y), cv2.FONT_HERSHEY_SIMPLEX,
-                        2, key_dict[key], 5)
+    def overlay_color_key(image, key_dict, text_size=30):
+        """
 
+        :param image: The image to overlay text on top of
+        :param key_dict: dict{text, color}
+        :param text_size: Size that text will be display in (size in pixels)
+        :return: The image with text overlaid
+        """
+        # image = imutils.resize(image, width=display_width)
+        text_size = 30 # in pixels
+        x,y = text_size//6, text_size//6
+        for key in key_dict:
+            y += text_size
+            cv2.putText(image, key, (x, y), cv2.FONT_HERSHEY_SIMPLEX,
+                        text_size/30, key_dict[key], text_size//12)
+            cv2.putText
         return image
 
     @staticmethod

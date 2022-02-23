@@ -41,14 +41,18 @@ well. If I add it, it will just be for fun.
 - Camera.py: Good enough for now
 - Card.py: Good enough for now
 - CardAnalyzer.py: **Needs a lot of work**
-- Code Snippets.py: *Everything commented out (might delete)*
-- colorlabeler.py: **Needs a lot of work**
-- FindCards.py: *Just delete it, I think? No usages right now.*
-- ImageExtractionTools.py: *Just delete, I think?  No usages right now.*
 - ImageExtractor.py: **Needs review**
 - MainSet.py: Good enough for now
 - SetPlayer.py: Good enough for now...minor clean-up of comments
 - Visualizer.py: Looks ok
+
+# Notes on tools
+- Camera Runs in BGR
+- HSV space is a little quirky in opencv
+    - 0-360 degrees, but 1 byte is 0-255...Opencv chose 0-180 (+1 means 2 degrees Saturation)
+    - at 180, a smooth transition wraps back to 0 (so 181 and 1 represent the same saturation value)
+    - 255 --> 256 causes the rollover errors you would expect (just shift everything into the 0-180 range)
+
 
 # Getting Started
 This is a lot of fun, and pretty easy to use. The only trick is setting up the environment dependencies (see below).

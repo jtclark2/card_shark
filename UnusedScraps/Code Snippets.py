@@ -74,3 +74,22 @@
 #     cv2.fillPoly(inverse_mask, pts=contours, color=(0))
 #     normalizer = (masked_gray + inverse_mask).min()
 #
+
+# def equalize_histogram_layer(img):
+#     # This is a little slow...I think it might be worth it, but keep it in mind
+#     hist, bins = np.histogram(img.flatten(), 256, [0, 256])
+#     cdf = hist.cumsum()
+#     cdf_m = np.ma.masked_equal(cdf, 0)
+#     cdf_m = (cdf_m - cdf_m.min()) * 255 / (cdf_m.max() - cdf_m.min())
+#     cdf2 = np.ma.filled(cdf_m, 0).astype('uint8')
+#     equalized_img = cdf2[img]
+#     return equalized_img
+#
+# def equalize_histogram_image(img):
+#     equalized_img = np.zeros_like(img)
+#     equalized_img[:, :, 0] = equalize_histogram_layer(img[:, :, 0])
+#     equalized_img[:, :, 1] = equalize_histogram_layer(img[:, :, 1])
+#     equalized_img[:, :, 2] = equalize_histogram_layer(img[:, :, 2])
+#     return equalized_img
+#
+# image = equalize_histogram_image(image)

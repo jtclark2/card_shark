@@ -8,7 +8,7 @@ import Card
 
 CARD_WIDTH = 400    #Width of extracted card images
 CARD_HEIGHT = 600   #Height of extracted card images
-MIN_CARD_SIZE = 10000   #Minimum pixel count for a blob to be considered a card
+MIN_CARD_SIZE = 5000   #Minimum pixel count for a blob to be considered a card
 MAX_CARD_SIZE = 100000
 MIN_CARD_CURVATURE = .10 #min_curvature, aka "epsilon" is the allowable curvature as a fraction of the arclength
 BLUR = 11
@@ -129,11 +129,8 @@ class ImageExtractor:
 
         blurred = cv2.medianBlur(gray, BLUR, 0) #Reduce noise in the image
 
-        resized = imutils.resize(blurred, width=600)
-        # cv2.imshow("Blurred Image", resized)
-
-        min_thresh = np.amin(resized)#0
-        max_thresh = np.amax(resized)#255
+        min_thresh = np.amin(blurred)#0
+        max_thresh = np.amax(blurred)#255
         ret,thresh_im = cv2.threshold(blurred,min_thresh,max_thresh,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         # ret,thresh = cv2.threshold(blurred,min_thresh,max_thresh,cv2.THRESH_OTSU)
 

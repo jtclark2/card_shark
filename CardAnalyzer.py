@@ -43,12 +43,38 @@ class HandTunedCardAnalyzer:
         :param image: Rectangular image of a SET card.
         :return: Card, with appropriately defined color, shape, fill, and count
         """
-        import time
-        tic = time.perf_counter()
+
         gray = cv2.cvtColor(card.image, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        thresh_val, thresh_img = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
+        # This is a bit of a lazy hack to clean up the binarization (the opencv method doesn't quite have the flexibility
+        # Adding a border basically tricks the threshold into shifting...this is NOT the right way to do this, but it's
+        # a quick patch for now.
+        # Eventually, I intend to use an adaptive threshold, fill the gaps in the shape, and findContours on that...
+        # The tricky bit is connecting the shape in a smart way, (and not slowing the program down too much)
+        # border_width = 5
+        # border_val = 120
+        # blurred[:border_width,:] = border_val
+        # blurred[-border_width:,:] = border_val
+        # blurred[:,:border_width] = border_val
+        # blurred[:,-border_width:] = border_val
+
+        height, width = blurred.shape
+        small_gray = cv2.resize(blurred, (int(width/10), int(height/10)))
+        light_correction = cv2.GaussianBlur(small_gray, (int(width/20)*2+1, int(width/20)*2+1), 0) #Reduce noise in the image
+        light_correction = cv2.resize(light_correction, (width, height))
+        light_correction = light_correction - np.amin(light_correction)
+        new_blurred = light_correction
+        #Todo: Division makes more sense, but gives us a type mistmatch - resolve later
+        blurred = cv2.subtract(blurred, light_correction)
+
+        thresh_val, thresh_img = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        # thresh_img = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
+        #                            cv2.THRESH_BINARY, 11, 2)
+        # cv2.imshow("new_blurred", new_blurred)
+        # cv2.imshow("light_correction", light_correction)
+        # cv2.imshow("blurred", blurred)
+        # cv2.imshow("thresh", thresh_img)
 
         # TODO: Is this thresh_img.copy needed, or is it just slowing the program down?
         contours = cv2.findContours(thresh_img.copy(), cv2.RETR_EXTERNAL,
@@ -76,6 +102,7 @@ class HandTunedCardAnalyzer:
         mask[-border_width:,:] = 0
         mask[:,:border_width] = 0
         mask[:,-border_width:] = 0
+        # cv2.imshow("mask", mask)
 
         (card.count, card.shape, _) = self._identify_count_and_shape(mask, card)
         (card.color, card.fill) = self._identify_color_and_fill(
@@ -115,12 +142,12 @@ class HandTunedCardAnalyzer:
 
         # Dev only: diagnostics
         #     print(f"\tspam...{template_card.shape.value}-{template_card.count.value} | {match_score}")
-
+        #
         # for template_card in self.mask_library:
         #
         #     match_score = self._intersection_over_union(mask, template_card.image)
         #
-        #     if match_score > .5*best_match_score:
+        #     if match_score > .99*best_match_score:
         #         cv2.imshow(f"Intersection:{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}",
         #                    cv2.bitwise_and(mask, template_card.image))
         #
@@ -128,6 +155,7 @@ class HandTunedCardAnalyzer:
         #                    cv2.bitwise_or(mask, template_card.image))
         #         print(f"\t{best_match_card.shape.value}-{best_match_card.count.value} | {match_score}")
         # print(f"Best_Match_Score for ({best_match_card.shape.value}-{best_match_card.count.value}: {best_match_score}")
+
         return (best_match_card.count, best_match_card.shape, best_match_score)
 
     def _identify_color_and_fill(self, image, inner_mask):
@@ -172,7 +200,7 @@ class HandTunedCardAnalyzer:
 
         while hue > 180:
             hue -= 180
-        red_hue, green_hue, purple_hue, red_hue_wrap = 0, 60, 140, 180
+        red_hue, green_hue, purple_hue, red_hue_wrap = 5, 85, 150, 185
         color_match = [abs(hue-target) for target in [red_hue, green_hue, purple_hue, red_hue_wrap]]
         color_index = np.argmin(color_match)
         card_color = color_table[color_index]
@@ -193,6 +221,7 @@ class HandTunedCardAnalyzer:
         #     cv2.imshow(f"Swatch-{i}", swatch)
 
         # print(f"Hue: {card_color} ({hue})")
+
         # disp_im = np.zeros_like(image)
         # disp_im[:,:,S] = 255. # Saturating the color helps a ton, especially for the striped/empty shapes (use before converting back to BGR)
         # disp_im[:,:,V] = 255.
@@ -239,7 +268,7 @@ class HandTunedCardAnalyzer:
         saturation_ratio = saturation/background_saturation
 
 
-        if saturation_ratio > 10:
+        if saturation_ratio > 9:
             fill = Fill.solid
         elif saturation_ratio > 1.3: # ????
             fill = Fill.striped
@@ -257,7 +286,8 @@ class HandTunedCardAnalyzer:
         # hsv_image[:,:,V] = 255.
         # image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
         # image = cv2.bitwise_and(image, image, mask=inner_mask)
-        # print(f"r{saturation/background_saturation}-s{saturation}-b{background_saturation}-")
         # cv2.imshow(f"r{saturation/background_saturation}-s{saturation}-b{background_saturation}-", image)
+
+        print(f"r{saturation/background_saturation}-s{saturation}-b{background_saturation}-")
 
         return (card_color, fill)

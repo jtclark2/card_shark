@@ -43,7 +43,7 @@ class Camera:
         # self.cap.set(CV_CAP_PROP_HUE, 100)
 
         # self.cap.set(CV_CAP_PROP_MODE, 1)
-        # self.cap.set(CV_CAP_PROP_FPS, 1)
+        self.cap.set(CV_CAP_PROP_FPS, 4)
         # self.cap.set(CV_CAP_PROP_BRIGHTNESS, 10)
         # self.cap.set(CV_CAP_PROP_CONTRAST, 255)
         # self.cap.set(CV_CAP_PROP_CONVERT_RGB, True)
@@ -62,10 +62,10 @@ class Camera:
             frame: I'm suppressing the bool. Just check if is None.
         """
         found_frame, frame = self.cap.read()
-        if (frame is None):
-            print("Available Camera Connection not found. Connect Camera, "
-                  "and ensure camera is not owned by other instance.")
-            self.release()
+        # if (frame is None):
+        #     print("Available Camera Connection not found. Connect Camera, "
+        #           "and ensure camera is not owned by other instance.")
+        #     self.release()
         return frame
 
     def release(self):

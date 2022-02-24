@@ -86,21 +86,23 @@ class Visualizer:
         :param contour: A contour outlining the card
         :return: The updated image, with contours added.
         """
+        text_size = 10
+
         cX_offset = -20
-        cY_offset = -45
+        cY_offset = -20
 
         M = cv2.moments(contour)
         cX = int(M['m10']/M['m00']) + cX_offset
         cY = int(M['m01']/M['m00']) + cY_offset
 
         cv2.putText(image, repr(card.count), (cX, cY), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.9, (0, 0, 0), 2)
-        cv2.putText(image, repr(card.shape), (cX, cY + 20), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.9, (0, 0, 0), 2)
-        cv2.putText(image, repr(card.fill), (cX, cY + 20 * 2), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.9, (0, 0, 0), 2)
-        cv2.putText(image, repr(card.color), (cX, cY + 20 * 3), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.9, (0, 0, 0), 2)
+                    0.5, (0, 0, 0), 1)
+        cv2.putText(image, repr(card.shape), (cX, cY + 10), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (0, 0, 0), 1)
+        cv2.putText(image, repr(card.fill), (cX, cY + 10 * 2), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (0, 0, 0), 1)
+        cv2.putText(image, repr(card.color), (cX, cY + 10 * 3), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (0, 0, 0), 1)
 
         return image
 

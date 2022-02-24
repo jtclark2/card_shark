@@ -26,24 +26,26 @@ IMG_NAME = "IMG_6394.JPG"
 # IMG_NAME = "RedReadsGreen.jpg" # looks like a rollover error in hue space
 IMG_NAME = "CaptureBright.jpg"
 IMG_NAME = "CaptureBackOfBox.jpg"
+IMG_NAME = "ReadsAsThree.jpg"
+IMG_NAME = "CaptureCardContourIssue.jpg"
 
 IMG_PATH = f"ImageLibrary/{IMG_NAME}"
 IMG_DIR ="ImageLibrary/%s.jpg"
 # IMG_SOURCE = "saved_image"
-IMG_SOURCE = "saved_image" # "camera" #
-
+IMG_SOURCE = "camera" # "saved_image" #
+record_video = True
+raw = False
 
 
 # Processing Pipeline
 def image_pipeline(image, image_extractor, color_table, player):
 
     images = image_extractor.detect_cards(image)
-    tic = time.perf_counter()
     cards = image_extractor.identify_cards(images)
-    print(f"Time to generate and display frame Time: {time.perf_counter() - tic}")
     sets = player.find_sets(cards)
 
     display_image = image.copy() # Create a copy to add graphics on top of
+    # display_image = cv2.resize(display_image, 800)
     Visualizer.overlay_ROIs(display_image, image_extractor.ROIs, color=color_table["Raw_Contour"], line_thickness=3)
     Visualizer.overlay_cards(cards, display_image, image_extractor.card_ROIs, color=color_table["Card"], line_thickness=3)
 
@@ -57,6 +59,7 @@ def image_pipeline(image, image_extractor, color_table, player):
     # image = cv2.resize(image, (500, 500*shape[0]//shape[1]))
     image = imutils.resize(image, width=1000)
     cv2.imshow("Rich Diagnostic View", image)
+    return image
 
 # Read image, process, display image, and plot all cards found
 if IMG_SOURCE == "saved_image":
@@ -69,23 +72,43 @@ if IMG_SOURCE == "saved_image":
 
 # Loop image capture and save/quit key interactions
 if IMG_SOURCE == "camera":
-    cam = Camera.Camera(1) # Starts at 0 (built-in laptop cam is usually 0, and USB cam is usually 1)
+    cam = Camera.Camera("Attempt2_WithoutGraphics.avi") # Starts at 0 (built-in laptop cam is usually 0, and USB cam is usually 1)
     cam.configure()
+    image = cam.read()
+
+    if record_video:
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        if raw:
+            shape = (640,480)
+        else:
+            shape = (1000, 750)
+
+
+        vid_writer = cv2.VideoWriter('output.avi', fourcc, 8.0, shape)
+
+
     while(True):
         image = cam.read() # Capture frame-by-frame
         if image is None:
             break
 
-        image_pipeline(image, image_extractor, color_table, player)
-        # Visualizer.plot_extracted_cards(image_extractor.card_images)
+        if record_video:
+            if raw:
+                vid_writer.write(image)
+
+        processed_image = image_pipeline(image, image_extractor, color_table, player)
+
+        if record_video:
+            if not raw:
+                vid_writer.write(processed_image)
 
         key_input = cv2.waitKey(1)
-
         if (key_input & 0xFF == ord('s')): # Save
             name = "ImageLibrary/Capture%s.jpg" % repr(time.time())
             cv2.imwrite(name, image)
-
         if (key_input & 0xFF == ord('q')): # Quit
             cam.release()
+            if record_video:
+                vid_writer.release()
             cv2.destroyAllWindows()
             break

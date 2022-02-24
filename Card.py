@@ -8,7 +8,7 @@ class Shape(Enum):
 
     def __repr__(self):
         """Make Printing less noisy"""
-        return str(self)[6:]+"-"
+        return str(self)[6:]
 
 
 class Color(Enum):
@@ -18,7 +18,7 @@ class Color(Enum):
 
     def __repr__(self):
         """Make Printing less noisy"""
-        return str(self)[6:]+"-"
+        return str(self)[6:]
 
 
 class Count(Enum):
@@ -28,7 +28,7 @@ class Count(Enum):
 
     def __repr__(self):
         """Make Printing less noisy"""
-        return str(self)[6:]+"-"
+        return str(self)[6:]
 
 
 class Fill(Enum):
@@ -38,7 +38,7 @@ class Fill(Enum):
 
     def __repr__(self):
         """Make Printing less noisy"""
-        return str(self)[5:]+"-"
+        return str(self)[5:]
 
 
 class Card:
@@ -52,7 +52,7 @@ class Card:
         self.index = index
 
     def __repr__(self):
-        return (repr(self.shape) + repr(self.color) + repr(self.count) + repr(self.fill))
+        return (repr(self.shape) + "-" + repr(self.color) + "-" + repr(self.count) + "-" +  repr(self.fill))
 
     def __hash__(self):
         return hash((self.shape.value, self.color, self.count, self.fill))

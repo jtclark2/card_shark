@@ -4,6 +4,7 @@ import cv2
 class Camera:
     def __init__(self, camera=0):
         self.cap = cv2.VideoCapture(camera)
+        self.shape = (None, None)
 
     def configure(self):
         """
@@ -35,6 +36,10 @@ class Camera:
         CV_CAP_PROP_RECTIFICATION = 19
         CV_CAP_PROP_ISO_SPEED = 20
         CV_CAP_PROP_BUFFERSIZE = 21
+
+        # Get basic info
+        print(self.cap.get(CV_CAP_PROP_FRAME_WIDTH), self.cap.get(CV_CAP_PROP_FRAME_HEIGHT))
+        self.shape = (int(self.cap.get(CV_CAP_PROP_FRAME_WIDTH)), int(self.cap.get(CV_CAP_PROP_FRAME_HEIGHT)))
 
         # Intentionally set to specific values
         # self.cap.set(CV_CAP_PROP_FRAME_WIDTH, 1920)

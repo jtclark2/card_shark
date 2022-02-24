@@ -20,9 +20,17 @@ class Visualizer:
                          thickness=line_thickness)
 
     @staticmethod
-    def overlay_cards(cards, image, ROIs, color=[255, 0, 0], line_thickness=1, show_labels = True, flip=False):
+    def overlay_cards(cards, image, ROIs, color=[255, 0, 0], line_thickness=1, show_labels = True):
         """
-        Apply outline and annotation to cards in image
+        Purpose: Apply outline and annotation to cards in image
+        :param cards: List of cards with attributes to be overlaid. This excludes ROIs, but does include
+            indexes which map to the ROIs, to determine which will be displayed.
+        :param image: Main image that graphics will be
+        :param ROIs: All regions Of Interest (which are really just wrappers for Contours)
+        :param color: Color to display (BGR).
+        :param line_thickness: Thickness of ROI border
+        :param show_labels: (bool) Whether or not to overlay labels describing card status.
+        :return: None
         """
         contours = [ROI.contour for ROI in ROIs]
         for card in cards:
@@ -33,8 +41,6 @@ class Visualizer:
                              thickness=line_thickness)
             if show_labels and contours is not None:
                 image = Visualizer._annotate_card(image, card, contours[card.index])
-        if(flip):
-            image = cv2.flip(image, -1)
 
     @staticmethod
     def overlay_color_key(image, key_dict, text_size=30):
@@ -78,7 +84,7 @@ class Visualizer:
         plt.show()
 
     @staticmethod
-    def _annotate_card(image, card, contour):
+    def _annotate_card(image, card, contour, size=1):
         """
         Annotates a card with it's attributes
         :param image: The image of the cards.
@@ -86,7 +92,9 @@ class Visualizer:
         :param contour: A contour outlining the card
         :return: The updated image, with contours added.
         """
-        text_size = 10
+        text_size = size
+        spacing = int(size*20)
+        text_thickness = int(size*2)
 
         cX_offset = -20
         cY_offset = -20
@@ -96,13 +104,13 @@ class Visualizer:
         cY = int(M['m01']/M['m00']) + cY_offset
 
         cv2.putText(image, repr(card.count), (cX, cY), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5, (0, 0, 0), 1)
-        cv2.putText(image, repr(card.shape), (cX, cY + 10), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5, (0, 0, 0), 1)
-        cv2.putText(image, repr(card.fill), (cX, cY + 10 * 2), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5, (0, 0, 0), 1)
-        cv2.putText(image, repr(card.color), (cX, cY + 10 * 3), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5, (0, 0, 0), 1)
+                    text_size, (0, 0, 0), text_thickness)
+        cv2.putText(image, repr(card.shape), (cX, cY + spacing), cv2.FONT_HERSHEY_SIMPLEX,
+                    text_size, (0, 0, 0), text_thickness)
+        cv2.putText(image, repr(card.fill), (cX, cY + spacing * 2), cv2.FONT_HERSHEY_SIMPLEX,
+                    text_size, (0, 0, 0), text_thickness)
+        cv2.putText(image, repr(card.color), (cX, cY + spacing * 3), cv2.FONT_HERSHEY_SIMPLEX,
+                    text_size, (0, 0, 0), text_thickness)
 
         return image
 

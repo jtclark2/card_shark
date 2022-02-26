@@ -121,6 +121,7 @@ class ImageExtractor:
         height, width = gray.shape
         small_gray = cv2.resize(gray, (int(width/10), int(height/10)))
         light_correction = cv2.GaussianBlur(small_gray, (int(width/20)*2+1, int(width/20)*2+1), 0) #Reduce noise in the image
+        # light_correction = cv2.medianBlur(small_gray, int(width/20)*2+1) #Correct aberation in image (brighter in center)
         light_correction = cv2.resize(light_correction, (width, height))
         light_correction = light_correction - np.amin(light_correction)
 

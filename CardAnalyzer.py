@@ -26,7 +26,7 @@ class HandTunedCardAnalyzer:
     def __init__(self, card_shape = (150,100), border_width=10):
         self.border_width = border_width
         self.card_shape = card_shape
-        self.diagnostic_mode = True
+        self.diagnostic_mode = False
 
         self.MIN_SHAPE_AREA = self.card_shape[0]*self.card_shape[1]//20
 
@@ -47,6 +47,62 @@ class HandTunedCardAnalyzer:
 
         self.cal_sum = np.array([0., 0., 0.])  # for the calibration routine
         self.count = 0
+
+        # calibration defaults
+        self.empty_striped_thresh = 1.5
+        self.striped_solid_thresh = 9
+
+        self.hue_table = {"low_red": 5,
+                          "green":85,
+                          "purple":150,
+                          "high_red":185}
+
+    def calibrate_single_color(self, card, color):
+        mask = self.construct_feature_mask(card)
+        offset_inner_mask, outer_mask = self.create_offset_masks(card.image, mask)
+        _, hue = self.identify_color(card.image, offset_inner_mask, outer_mask)
+
+        print(f"Updating Hue Table: ")
+        print(f"Old:\tRed = {self.hue_table['low_red']} \tGreen = {self.hue_table['green']} \tPurple = {self.hue_table['purple']}")
+        print(f"New:\tRed = {self.hue_table['low_red']} \tGreen = {self.hue_table['green']} \tPurple = {self.hue_table['purple']}")
+        if color == Color.green:
+            self.hue_table["green"] = hue
+        if color == Color.purple:
+            self.hue_table["purple"] = hue
+        if color == Color.red:
+            self.hue_table["low_red"] = hue
+            self.hue_table["high_red"] = 180 + hue
+
+    def calibrate(self, cards):
+        """
+        :param cards: A list of 3 cards. All of them need to be striped. One should be of each color
+        :return: None
+        Side Effect: Updates calibration values.
+        Assumptions: Color are imperfect, but close enough to get it right most of the time. This
+        calibration will shift the centers, but if the calibration does not know which color is which,
+        it's not going to sort things out
+
+        """
+        # print(f"Old Thresholds: -> Empty - ({self.empty_striped_thresh}) - Striped - ({self.striped_solid_thresh}) - Solid <-")
+        # saturation_ratios = []
+        # for card in cards:
+        #     mask = self.construct_feature_mask(card)
+        #     offset_inner_mask, outer_mask = self.create_offset_masks(card.image, mask)
+        #     fill, saturation_ratio = self.identify_fill(card.image, offset_inner_mask, outer_mask)
+        #     saturation_ratios.append(saturation_ratio)
+        #
+        # self.empty_striped_thresh = (min(saturation_ratios))**0.5 # geometric mean between empty ~1, and the value we just found: a*sqrt(b/a)
+        # self.striped_solid_thresh = max(saturation_ratios)*3 # If this is inconsistent, we'll need 3 solids for a geometric mean
+
+        print(f"New Thresholds: Empty - ({self.empty_striped_thresh}) - Striped - ({self.striped_solid_thresh}) - Solid")
+
+        all_colors = [Color.purple, Color.green, Color.red]
+        for card in cards:
+            if len(all_colors) == 0:
+                return
+            if card.color in all_colors:
+                all_colors.remove(card.color)
+                self.calibrate_single_color(card, card.color)
 
     def crop_standard(self, image):
         """
@@ -176,129 +232,100 @@ class HandTunedCardAnalyzer:
         return (best_match_card.count, best_match_card.shape, best_match_score)
 
     def _identify_color_and_fill(self, image, inner_mask, id):
+        offset_inner_mask, outer_mask = self.create_offset_masks(image, inner_mask)
+
+        card_color, _ = self.identify_color(image, offset_inner_mask, outer_mask)
+
+        fill, _ = self.identify_fill(image, offset_inner_mask, outer_mask)
+
+        return (card_color, fill)
+
+    def create_offset_masks(self, image, inner_mask):
         # Create mask for white 'outer' area of card
         shape = inner_mask.shape
         outer_mask = np.zeros(shape, np.uint8) + 255
         idx = (inner_mask != 0)
         outer_mask[idx] = 0
-
-        thickness_of_edge_mask_as_fraction = 1./20
-        erosion_size = int(((shape[0]*shape[1])**.5)*thickness_of_edge_mask_as_fraction) # 3-5 seems like a good range to remove color blur from edges # TODO: scale to Card Dimensions
+        thickness_of_edge_mask_as_fraction = 1. / 20
+        erosion_size = int(((shape[0] * shape[
+            1]) ** .5) * thickness_of_edge_mask_as_fraction)  # 3-5 seems like a good range to remove color blur from edges # TODO: scale to Card Dimensions
         erosion_shape = cv2.MORPH_ELLIPSE
         element = cv2.getStructuringElement(erosion_shape, (2 * erosion_size + 1, 2 * erosion_size + 1),
-                                 (erosion_size, erosion_size))
-        inner_mask = cv2.erode(inner_mask, element, iterations=1)
-
-        # erosion_size = 0 # TODO: scale to Card Dimensions
-        # element = cv2.getStructuringElement(erosion_shape, (2 * erosion_size + 1, 2 * erosion_size + 1),
-        #                          (erosion_size, erosion_size))
-        # outer_mask = cv2.erode(outer_mask, element, iterations=1)
-
-        contour_hidden_mask = cv2.bitwise_or(inner_mask,outer_mask)
-        contour_exposed_mask = cv2.bitwise_not(contour_hidden_mask)
-
+                                            (erosion_size, erosion_size))
+        offset_inner_mask = cv2.erode(inner_mask, element, iterations=1)
         # Normalize with the outer white portion of the card
         for idx in (0, 1, 2):
             (outer_mean, outer_std_dev) = cv2.meanStdDev(image[:, :, idx], mask=outer_mask)
-            normalization_scalar = (128./outer_mean)
-            image[:, :, idx] = cv2.multiply(image[:, :, idx],normalization_scalar)
+            normalization_scalar = (128. / outer_mean)
+            image[:, :, idx] = cv2.multiply(image[:, :, idx], normalization_scalar)
+        return offset_inner_mask, outer_mask
 
-        # Average and mask
-        color = np.zeros((1, 1, 3), np.uint8)
-        for i in [0,1,2]:
-            color[0,0,i] = np.mean(image[:, :, i], where=contour_exposed_mask.astype(bool))
-
+    def identify_fill(self, image, offset_inner_mask, outer_mask):
+        # Fill / Texture
         H, S, V = 0, 1, 2
-        hsv_color = cv2.cvtColor(color, cv2.COLOR_BGR2HSV)
-        hue = hsv_color[0][0][H]
-        color_table = [Color.red, Color.green, Color.purple, Color.red]
-
-        while hue > 180:
-            hue -= 180
-        red_hue, green_hue, purple_hue, red_hue_wrap = 5, 85, 150, 185
-        color_match = [abs(hue-target) for target in [red_hue, green_hue, purple_hue, red_hue_wrap]]
-        color_index = np.argmin(color_match)
-        card_color = color_table[color_index]
-
-        # Things to know about opencv's implementation of huespace
-        # 1) It's from 0-255 (not 0-360). It will rollover after that
-        # 2) The standard 0-360 scale corresponds to values of Hue values from 0-180...1 hue = 2 degrees in hue space
-        # 3) That means that 180-255 and above is redundant
-
-        # ### Display the outline in the matched hue (for development/testing only)
-        # for i in range(0,270,10):
-        #     swatch =  np.zeros((150, 250, 3), np.uint8)
-        #     swatch[:,:,V] = 255.
-        #     swatch[:,:,H] = i
-        #     swatch[:,:,S] = 255. # Saturating the color helps a ton, especially for the striped/empty shapes (use before converting back to BGR)
-        #     swatch = cv2.cvtColor(swatch, cv2.COLOR_HSV2BGR)
-        #     import random
-        #     cv2.imshow(f"Swatch-{i}", swatch)
-
-
-        if self.diagnostic_mode:
-            print(f"Hue: {card_color} ({hue})")
-
-            disp_im = np.zeros_like(image)
-            disp_im[:,:,S] = 255. # Saturating the color helps a ton, especially for the striped/empty shapes (use before converting back to BGR)
-            disp_im[:,:,V] = 255.
-            disp_im[:,:,H] = hue
-            disp_im = cv2.bitwise_and(disp_im, disp_im, mask=contour_exposed_mask)
-            disp_im = cv2.cvtColor(disp_im, cv2.COLOR_HSV2BGR)
-            masked_view = cv2.bitwise_and(image, image, mask=contour_exposed_mask)
-            cv2.imshow(f"Color: Masked Image", cv2.resize(masked_view, (400,600)))
-            cv2.imshow(f"Show silhouette color-{id}", disp_im)
-
-
-
-
-
-        # ### Fill / Texture
-
-
-        ### Alternate approach - slightly faster, but has some precision issues due to a type conversion
-        #   TODO: No reason, you couldn't clean this one up and fix the precision problems though...It's the uint8,
-        #   but it's pretty insistent these functions use them...it's just a matter of looking up the docs
-        # inner_color = np.zeros((1, 1, 3), np.uint8)
-        # background_color = np.zeros((1, 1, 3), np.uint8)
-        # # We lose some precision here with the type conversion...not sure if I should worry about it or not...
-        # for i in [0,1,2]:
-        #     inner_color[0,0,i] = np.mean(image[:, :, i], where=inner_mask.astype(bool))
-        #     background_color[0,0,i] = np.mean(image[:, :, i], where=outer_mask.astype(bool))
-        #     # (inner_color[0,0,i], _) = cv2.meanStdDev(image[:, :, i], mask=inner_mask)
-        #     # (background_color[0,0,i], _) = cv2.meanStdDev(image[:, :, i], mask=outer_mask)
-        #
-        # # print(inner_color)
-        # # print(background_color)
-        # hsv_color_inner = cv2.cvtColor(inner_color, cv2.COLOR_BGR2HSV)
-        # hsv_color_background = cv2.cvtColor(background_color, cv2.COLOR_BGR2HSV)
-        #
-        # saturation = hsv_color_inner[0][0][S]
-        # background_saturation = hsv_color_background[0][0][S]
-
-
-
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        saturation = np.mean(hsv_image[:, :, S], where=inner_mask.astype(bool))
+        saturation = np.mean(hsv_image[:, :, S], where=offset_inner_mask.astype(bool))
         background_saturation = np.mean(hsv_image[:, :, S], where=outer_mask.astype(bool))
+        saturation_ratio = saturation / background_saturation
 
-        saturation_ratio = saturation/background_saturation
+        self.striped_solid_thresh
 
-
-        if saturation_ratio > 9:
+        # print(saturation_ratio)
+        if saturation_ratio > self.striped_solid_thresh:    # 9 is a reasonable value
             fill = Fill.solid
-        elif saturation_ratio > 2: # ????
+        elif saturation_ratio > self.empty_striped_thresh:  # 1.5 is a reasonable value
             fill = Fill.striped
         else:
             fill = Fill.empty
 
         ### Display the fill region (for development only)
         if self.diagnostic_mode:
-            hsv_image[:,:,V] = 255.
+            hsv_image[:, :, V] = 255.
             image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
-            image = cv2.bitwise_and(image, image, mask=inner_mask)
+            image = cv2.bitwise_and(image, image, mask=offset_inner_mask)
             cv2.imshow("Fill: Masked (Value@255)", image)
 
             print(f"r{saturation/background_saturation}-s{saturation}-b{background_saturation}-")
+        return fill, saturation_ratio
 
-        return (card_color, fill)
+    def identify_color(self, image, offset_inner_mask, outer_mask):
+        H, S, V = 0, 1, 2
+
+        contour_hidden_mask = cv2.bitwise_or(offset_inner_mask, outer_mask)
+        contour_exposed_mask = cv2.bitwise_not(contour_hidden_mask)
+        # Average and mask
+        color = np.zeros((1, 1, 3), np.uint8)
+        for i in [0, 1, 2]:
+            color[0, 0, i] = np.mean(image[:, :, i], where=contour_exposed_mask.astype(bool))
+            # (color[0,0,i], _) = cv2.meanStdDev(image[:, :, i], mask=contour_exposed_mask) # handle precision/types differently than np
+
+        # Things to know about opencv's implementation of HSV space (specifically hue)
+        # 1) It's from 0-255 (not 0-360). It will rollover after that
+        # 2) The standard 0-360 scale corresponds to values of Hue values from 0-180...1 hue = 2 degrees in hue space
+        # 3) That means that 180-255 and above is redundant
+        hsv_color = cv2.cvtColor(color, cv2.COLOR_BGR2HSV)
+        hue = int(hsv_color[0][0][H]) # cast to ensure we can do some math without worrying about roll over
+        color_table = [Color.red, Color.green, Color.purple, Color.red]
+
+        while hue > 180:
+            hue -= 180
+        hue_error = [abs(hue - ideal_hue) for _, ideal_hue in self.hue_table.items()]
+        color_index = np.argmin(hue_error)
+        card_color = color_table[color_index]
+        # print(hue, hue_error, color_index, card_color)
+        if self.diagnostic_mode:
+            print(f"Hue: {card_color} ({hue})")
+
+            # Maximize satuation and value, and use hue to show a BGR color image with intuitive hue information
+            disp_im = np.zeros_like(image)
+            disp_im[:, :, S] = 255.
+            disp_im[:, :, V] = 255.
+            disp_im[:, :, H] = hue
+            disp_im = cv2.bitwise_and(disp_im, disp_im, mask=contour_exposed_mask)
+            disp_im = cv2.cvtColor(disp_im, cv2.COLOR_HSV2BGR)
+            masked_view = cv2.bitwise_and(image, image, mask=contour_exposed_mask)
+
+            # make image size whatever works for your eyes
+            cv2.imshow(f"Color: Masked Image", cv2.resize(masked_view, (400, 600)))
+            cv2.imshow(f"Show silhouette color-{id}", disp_im)
+        return card_color, hue

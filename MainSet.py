@@ -7,6 +7,7 @@ import CardAnalyzer
 import SetPlayer
 from Visualizer import Visualizer
 import Camera
+import Card
 
 
 ######## Configuration setup #########
@@ -59,7 +60,13 @@ def image_pipeline(image, image_extractor, color_table, player):
     images = image_extractor.detect_cards(image)
     extract_time = f"{time.perf_counter() - start: .5f}"
     start = time.perf_counter()
-    cards = image_extractor.identify_cards(images)
+    # cards = image_extractor.identify_cards(images)
+    cards = []
+    for idx, card_image in enumerate(images):
+        card = Card.Card(index=idx, image=card_image)
+        card = card_analyzer.identify_card(card)
+        if card is not None:
+            cards.append(card)
     id_time = f"{time.perf_counter() - start: .5f}"
     start = time.perf_counter()
     sets = player.find_sets(cards)
@@ -71,9 +78,9 @@ def image_pipeline(image, image_extractor, color_table, player):
     Visualizer.overlay_cards(cards, display_image, image_extractor.card_ROIs, color=color_table["Card"], line_thickness=3)
 
     if len(sets) > 0:
-        Visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"], line_thickness=3)
+        Visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"], line_thickness=3, text_size=.5)
 
-    image = Visualizer.overlay_color_key(display_image, color_table)
+    image = Visualizer.overlay_color_key(display_image, color_table, text_size=20)
     fps = 1 / (time.perf_counter() - tic)
     image = Visualizer.display_fps(display_image, fps)
 
@@ -110,6 +117,9 @@ if SOURCE_TYPE == "video":
     cam = Camera.Camera(VIDEO_SOURCE) # Starts at 0 (built-in laptop cam is usually 0, and USB cam is usually 1)
     cam.configure()
     image = cam.read()
+    if image is None:
+        raise ConnectionRefusedError("Did you remember to plug in the camera, and kill the other programs?")
+
 
     if record_video:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -138,6 +148,40 @@ if SOURCE_TYPE == "video":
         if (key_input & 0xFF == ord('s')): # Save
             name = "ImageLibrary/Capture%s.jpg" % repr(time.time())
             cv2.imwrite(name, image)
+
+        # Automatic calibration (requires 1 card of each color, all striped)
+        if (key_input & 0xFF == ord('c')): # Calibrate
+            images = image_extractor.detect_cards(image)
+            cards = image_extractor.identify_cards(images)
+            card_analyzer.calibrate(cards)
+
+        # Manual-ish calibrations
+        if (key_input & 0xFF == ord('[')):
+            card_analyzer.empty_striped_thresh -= 0.05
+            print(f"Adjusted empty_striped_thresh: {card_analyzer.empty_striped_thresh}")
+        if (key_input & 0xFF == ord(']')):
+            card_analyzer.empty_striped_thresh += 0.05
+            print(f"Adjusted empty_striped_thresh: {card_analyzer.empty_striped_thresh}")
+
+        # Color calibrations: Requires 1 card of that color
+        if (key_input & 0xFF == ord('p')):
+            images = image_extractor.detect_cards(image)
+            cards = image_extractor.identify_cards(images)
+            card_analyzer.calibrate_single_color(cards[0], Card.Color.purple)
+
+        if (key_input & 0xFF == ord('r')):
+            images = image_extractor.detect_cards(image)
+            cards = image_extractor.identify_cards(images)
+            card_analyzer.calibrate_single_color(cards[0], Card.Color.red)
+
+        if (key_input & 0xFF == ord('g')):
+            images = image_extractor.detect_cards(image)
+            cards = image_extractor.identify_cards(images)
+            card_analyzer.calibrate_single_color(cards[0], Card.Color.green)
+
+        if (key_input & 0xFF == ord('d')):  # Diagnostic mode toggle
+            card_analyzer.diagnostic_mode = not card_analyzer.diagnostic_mode
+
         if (key_input & 0xFF == ord('q')): # Quit
             cam.release()
             if record_video:

@@ -57,3 +57,14 @@
 #                 minDist = (d, i)
 #         # return the name of the color with the smallest distance
 #         return self.colorNames[minDist[1]]
+
+
+# ### Display the outline in the matched hue (for development/testing only)
+# for i in range(0,270,10):
+#     swatch =  np.zeros((150, 250, 3), np.uint8)
+#     swatch[:,:,V] = 255.
+#     swatch[:,:,H] = i
+#     swatch[:,:,S] = 255. # Saturating the color helps a ton, especially for the striped/empty shapes (use before converting back to BGR)
+#     swatch = cv2.cvtColor(swatch, cv2.COLOR_HSV2BGR)
+#     import random
+#     cv2.imshow(f"Swatch-{i}", swatch)

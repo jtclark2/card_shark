@@ -38,7 +38,7 @@ class Camera:
         CV_CAP_PROP_BUFFERSIZE = 21
 
         # Get basic info
-        print(self.cap.get(CV_CAP_PROP_FRAME_WIDTH), self.cap.get(CV_CAP_PROP_FRAME_HEIGHT))
+        print(f"Camera Resolution: ({self.cap.get(CV_CAP_PROP_FRAME_WIDTH)}, {self.cap.get(CV_CAP_PROP_FRAME_HEIGHT)})")
         self.shape = (int(self.cap.get(CV_CAP_PROP_FRAME_WIDTH)), int(self.cap.get(CV_CAP_PROP_FRAME_HEIGHT)))
 
         # Intentionally set to specific values

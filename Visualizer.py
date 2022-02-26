@@ -20,7 +20,7 @@ class Visualizer:
                          thickness=line_thickness)
 
     @staticmethod
-    def overlay_cards(cards, image, ROIs, color=[255, 0, 0], line_thickness=1, show_labels = True):
+    def overlay_cards(cards, image, ROIs, color=[255, 0, 0], line_thickness=1, show_labels = True, text_size=.5):
         """
         Purpose: Apply outline and annotation to cards in image
         :param cards: List of cards with attributes to be overlaid. This excludes ROIs, but does include
@@ -40,7 +40,7 @@ class Visualizer:
                              color=color,
                              thickness=line_thickness)
             if show_labels and contours is not None:
-                image = Visualizer._annotate_card(image, card, contours[card.index])
+                image = Visualizer._annotate_card(image, card, contours[card.index], text_size=text_size)
 
     @staticmethod
     def overlay_color_key(image, key_dict, text_size=30):
@@ -64,7 +64,7 @@ class Visualizer:
     def display_fps(image, fps,  text_size=30):
         text_size = 30 # in pixels
         white = [255, 255, 255]
-        x,y = image.shape[1] - text_size//6-160, image.shape[0] - text_size//6-35
+        x,y = image.shape[1] - text_size//6-170, image.shape[0] - text_size//6-35
         y += text_size
         cv2.putText(image, f"FPS: {fps: .1f}", (x, y), cv2.FONT_HERSHEY_SIMPLEX,
                     text_size/30, white, text_size//12)
@@ -93,7 +93,7 @@ class Visualizer:
         plt.show()
 
     @staticmethod
-    def _annotate_card(image, card, contour, size=1):
+    def _annotate_card(image, card, contour, text_size=1):
         """
         Annotates a card with it's attributes
         :param image: The image of the cards.
@@ -101,9 +101,9 @@ class Visualizer:
         :param contour: A contour outlining the card
         :return: The updated image, with contours added.
         """
-        text_size = size
-        spacing = int(size*20)
-        text_thickness = int(size*2)
+        text_size = text_size
+        spacing = int(text_size * 20)
+        text_thickness = int(text_size * 2)
 
         cX_offset = -20
         cY_offset = -20

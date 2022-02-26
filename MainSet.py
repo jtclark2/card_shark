@@ -163,6 +163,14 @@ if SOURCE_TYPE == "video":
             card_analyzer.empty_striped_thresh += 0.05
             print(f"Adjusted empty_striped_thresh: {card_analyzer.empty_striped_thresh}")
 
+        if (key_input & 0xFF == ord('(')):
+            card_analyzer.striped_solid_thresh -= 0.1
+            print(f"Adjusted empty_striped_thresh: {card_analyzer.striped_solid_thresh}")
+        if (key_input & 0xFF == ord(')')):
+            card_analyzer.striped_solid_thresh += 0.1
+            print(f"Adjusted empty_striped_thresh: {card_analyzer.striped_solid_thresh}")
+
+
         # Color calibrations: Requires 1 card of that color
         if (key_input & 0xFF == ord('p')):
             images = image_extractor.detect_cards(image)

@@ -24,27 +24,16 @@ Explanation:
 - All the cards are not filled in  
     
 # Future Improvements
+- Speed up: When I extract card images, they're usually about ~100x150 pixels pulled from a 640x480 image; however,
+I'm currently resizing them way up to 600x400...I could just shrink the card scale, but I have some dependencies
+in the card analyzer, where I use some hard-coded values, and now it will be a bit tricky to re-tune everything
+at a new scale...very doable, but I'll need to redo a bunch of hand-tuning, which I don't have time for right now
 - organize and comment a little better...very cool program, but I wrote it a while ago, and while learning opencv.
     - Just improve the organization and readability
-- Optimize the set finding algorithm. There is some low hanging fruit here, but even my brute force algorithm
-barely takes any processing cycles compared to the image processing.
-- Improve color correction. I have a cheap webcam, which struggles under some lighting conditions, particularly very 
-yellow, indoor lighting. The color of the striped and empty purple and greens becomes very similar, even to my own eye.
-    - A dynamic might help remove this yellowing effect, because this lighting is not even across the image
-        - See **WebCam1.PNG** for a good example of this.
-    - I'm running in RGB, and converting to something like HSV may simplify these challenges as well.
-- I've considered adding an ML classifier...I probably won't at this point, just because the existing tools work quite
-well. If I add it, it will just be for fun.
+- I've considered adding an ML classifier for individual cards...I probably won't at this point, since the
+existing tools work quite well. If I add it, it will just be for fun.
 - Script env setup
-
-## File Clean-up Status:
-- Camera.py: Good enough for now
-- Card.py: Good enough for now
-- CardAnalyzer.py: **Needs a lot of work**
-- ImageExtractor.py: **Needs review**
-- MainSet.py: Good enough for now
-- SetPlayer.py: Good enough for now...minor clean-up of comments
-- Visualizer.py: Looks ok
+- Whip up a GUI with all the config options in MainSet.py
 
 # Notes on tools
 - Camera Runs in BGR

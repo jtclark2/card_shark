@@ -10,21 +10,24 @@ import Camera
 
 
 ######## Configuration setup #########
-# TODO: whip up a GUI with these options (low priority: might be out of scope for a while)
-SOURCE_TYPE = "image" # "video" #
+SOURCE_TYPE = "video" # "image"
 
 if SOURCE_TYPE == "video":
-    VIDEO_SOURCE = 1  # Either a video
+    # Either camera index or a video
+    VIDEO_SOURCE = "Attempt2_WithoutGraphics.avi"
+    VIDEO_SOURCE = 1
 
-    record_video = True
+    if type(VIDEO_SOURCE) == str:
+        VIDEO_SOURCE = f"VideoLibrary/{VIDEO_SOURCE}"
+
+    record_video = False
     if record_video:
         FRAME_RATE = 8.0
         OUTPUT_FILE = "Output.avi"
         OUTPUT_VIDEO_PATH = f"VideoLibrary/Output_{FRAME_RATE}FPS_{OUTPUT_FILE}"
         raw = False
 
-        if type(VIDEO_SOURCE) == str:
-            VIDEO_PATH = f"VideoLibrary/{VIDEO_SOURCE}"
+
 else:
     IMG_NAME = "IMG_6394.JPG"
     IMG_NAME = "WebCam1.PNG"
@@ -51,11 +54,18 @@ player = SetPlayer.SetPlayer()
 
 # Processing Pipeline
 def image_pipeline(image, image_extractor, color_table, player):
-
+    tic = time.perf_counter()
+    start = time.perf_counter()
     images = image_extractor.detect_cards(image)
+    extract_time = f"{time.perf_counter() - start: .5f}"
+    start = time.perf_counter()
     cards = image_extractor.identify_cards(images)
+    id_time = f"{time.perf_counter() - start: .5f}"
+    start = time.perf_counter()
     sets = player.find_sets(cards)
+    play_time = f"{time.perf_counter() - start: .5f}"
 
+    start = time.perf_counter()
     display_image = image.copy() # Create a copy to add graphics on top of
     Visualizer.overlay_ROIs(display_image, image_extractor.ROIs, color=color_table["Raw_Contour"], line_thickness=3)
     Visualizer.overlay_cards(cards, display_image, image_extractor.card_ROIs, color=color_table["Card"], line_thickness=3)
@@ -64,12 +74,18 @@ def image_pipeline(image, image_extractor, color_table, player):
         Visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"], line_thickness=3)
 
     image = Visualizer.overlay_color_key(display_image, color_table)
+    fps = 1 / (time.perf_counter() - tic)
+    image = Visualizer.display_fps(display_image, fps)
 
     # TODO: cv2.resize causes some aliasing, but removes the imutils dependency (and that library has proven pretty unstable)
     shape = image.shape
     image = cv2.resize(image, (OUTPUT_WIDTH*shape[1]//shape[0], OUTPUT_WIDTH))
     # image = imutils.resize(image, width=OUTPUT_WIDTH)
     cv2.imshow("Rich Diagnostic View", image)
+
+
+    display_time = f"{time.perf_counter() - start: .5f}"
+    # print(extract_time, id_time, play_time, display_time)
     return image
 
 # Read image, process, display image, and plot all cards found

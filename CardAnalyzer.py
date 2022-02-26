@@ -1,8 +1,8 @@
 from Card import *
 
+import time
 import cv2
 import numpy as np
-import imutils
 
 class HandTunedCardAnalyzer:
     """
@@ -23,7 +23,15 @@ class HandTunedCardAnalyzer:
             different decks (eg: SET, standard playing cards, etc.) I have tools to interpret shapes, colors, etc.
     """
 
-    def __init__(self):
+    def __init__(self, card_shape = (150,100), border_width=10):
+        self.border_width = border_width
+        self.card_shape = card_shape
+        self.diagnostic_mode = True
+
+        self.MIN_SHAPE_AREA = self.card_shape[0]*self.card_shape[1]//20
+
+        # TODO: There are magical hand-tuned numbers throughout this class.
+        # I marked these with "TODO: scale to Card Dimensions", and I'm working on cleaning it up
         self.mask_library = []
         SAVE_PATH = "CardTemplates/%s_%s.jpg"
         for shape in Shape: # ('stadium', 'wisp', 'diamond'):
@@ -31,11 +39,22 @@ class HandTunedCardAnalyzer:
                 path = SAVE_PATH % (shape.value, count.value)
                 im = cv2.imread(path)
                 mask = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                if mask.shape != card_shape:
+                    mask = cv2.resize(mask, (card_shape[1], card_shape[0])) # not a typo - order reversed for this op
+                mask = self.crop_standard(mask)
                 card = Card(image=mask,shape=shape, count=count)
                 self.mask_library.append(card)
 
         self.cal_sum = np.array([0., 0., 0.])  # for the calibration routine
         self.count = 0
+
+    def crop_standard(self, image):
+        """
+        Just make sure we're cropping templates and images in a standard way
+        :param image: In image of a card/template
+        :return: Cropped image
+        """
+        return image[self.border_width:-self.border_width,self.border_width:-self.border_width]
 
     def identify_card(self, card):
         """
@@ -43,73 +62,70 @@ class HandTunedCardAnalyzer:
         :param image: Rectangular image of a SET card.
         :return: Card, with appropriately defined color, shape, fill, and count
         """
+        card.image = self.crop_standard(card.image)
 
+        start = time.perf_counter()
+        mask = self.construct_feature_mask(card)
+        feature_mask_time = f"{time.perf_counter() - start: .5f}"
+
+        start = time.perf_counter()
+        (card.count, card.shape, _) = self._identify_count_and_shape(mask, card)
+        count_and_shape_time = f"{time.perf_counter() - start: .5f}"
+
+        start = time.perf_counter()
+        (card.color, card.fill) = self._identify_color_and_fill(card.image, mask, card.index)
+        color_and_fill_time = f"{time.perf_counter() - start: .5f}"
+
+        # print(feature_mask_time, count_and_shape_time, color_and_fill_time)
+        return card
+
+    def construct_feature_mask(self, card):
+        start = time.perf_counter()
+        # Find contours and build mask
         gray = cv2.cvtColor(card.image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        gray_time = f"{time.perf_counter() - start: .5f}"
+        start = time.perf_counter()
 
-        # This is a bit of a lazy hack to clean up the binarization (the opencv method doesn't quite have the flexibility
-        # Adding a border basically tricks the threshold into shifting...this is NOT the right way to do this, but it's
-        # a quick patch for now.
-        # Eventually, I intend to use an adaptive threshold, fill the gaps in the shape, and findContours on that...
-        # The tricky bit is connecting the shape in a smart way, (and not slowing the program down too much)
-        # border_width = 5
-        # border_val = 120
-        # blurred[:border_width,:] = border_val
-        # blurred[-border_width:,:] = border_val
-        # blurred[:,:border_width] = border_val
-        # blurred[:,-border_width:] = border_val
-
-        height, width = blurred.shape
-        small_gray = cv2.resize(blurred, (int(width/10), int(height/10)))
-        light_correction = cv2.GaussianBlur(small_gray, (int(width/20)*2+1, int(width/20)*2+1), 0) #Reduce noise in the image
+        # remove variation in background
+        height, width = gray.shape
+        small_size_approx = 50 # rough count in pixels, averaged across height and width
+        light_correction_kernel_size_as_fraction = 1./2
+        shrink_factor = int((height*width)**.5//small_size_approx) # the smaller the image, the faster the kernel sweep runs, but we want reasonable res
+        small_gray = cv2.resize(gray, (width // shrink_factor, height // shrink_factor))
+        kernel_size = int((small_gray.shape[0]*small_gray.shape[1])**.5 * light_correction_kernel_size_as_fraction)
+        # light_correction = cv2.GaussianBlur(small_gray, (kernel_size * 2 + 1, kernel_size * 2 + 1), 0)
+        light_correction = cv2.medianBlur(small_gray, kernel_size*2+1)
         light_correction = cv2.resize(light_correction, (width, height))
         light_correction = light_correction - np.amin(light_correction)
-        new_blurred = light_correction
-        #Todo: Division makes more sense, but gives us a type mistmatch - resolve later
-        blurred = cv2.subtract(blurred, light_correction)
+        balanced = cv2.subtract(gray, light_correction)
+        light_corr_time = f"{time.perf_counter() - start: .5f}"
+        start = time.perf_counter()
+        # balanced = gray
 
-        thresh_val, thresh_img = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        # thresh_img = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
-        #                            cv2.THRESH_BINARY, 11, 2)
-        # cv2.imshow("new_blurred", new_blurred)
-        # cv2.imshow("light_correction", light_correction)
-        # cv2.imshow("blurred", blurred)
-        # cv2.imshow("thresh", thresh_img)
-
-        # TODO: Is this thresh_img.copy needed, or is it just slowing the program down?
-        contours = cv2.findContours(thresh_img.copy(), cv2.RETR_EXTERNAL,
+        # Find threshold and extract contours
+        thresh_val, thresh_img = cv2.threshold(balanced, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        contours = cv2.findContours(thresh_img, cv2.RETR_EXTERNAL,
                                     cv2.CHAIN_APPROX_SIMPLE)
+        contour_time = f"{time.perf_counter() - start: .5f}"
+        start = time.perf_counter()
 
-        if imutils.is_cv2():
-            contours = contours[0]
-        if imutils.is_cv3():
-            contours = contours[1]
-        if imutils.is_cv4(): # This is the version I've tested with
-            contours = contours[0]
+        # Quirky behavior in opencv (the magic numbers are major versions)
+        major_version = int(cv2.__version__[0])  # I've primarily tested with v4.4.x
+        contours = contours[0] if major_version in [2, 4] else contours[1]  # contour formatting is version dependant
 
-        MIN_SHAPE_AREA = 1000
-        contours = [c for c in contours if cv2.contourArea(c) >= MIN_SHAPE_AREA]
+        # Filter noisy junk contours
+        contours = [c for c in contours if cv2.contourArea(c) >= self.MIN_SHAPE_AREA]
+        filter_time = f"{time.perf_counter() - start: .5f}"
+        start = time.perf_counter()
 
+        # Draw contours onto a mask
         shape = gray.shape
         mask = np.zeros(shape, np.uint8)
-        cv2.drawContours(mask, contours, -1, 255, -1) # fill contours
+        cv2.drawContours(mask, contours, -1, 255, -1)  # fill contours
+        draw_time = f"{time.perf_counter() - start: .5f}"
+        # print(gray_time, light_corr_time, contour_time, filter_time, draw_time)
 
-        # TODO: crop instead of masking for speed boost (400x600 vs. 300x500 --> 5/8 the pixels
-        # I'll need to regenerate the templates though...so for now, I'll just crop as I pass into color_and_fill
-        # Mask off border (suppress any edge contours - all card content is in the center)
-        border_width = 50
-        mask[:border_width,:] = 0
-        mask[-border_width:,:] = 0
-        mask[:,:border_width] = 0
-        mask[:,-border_width:] = 0
-        # cv2.imshow("mask", mask)
-
-        (card.count, card.shape, _) = self._identify_count_and_shape(mask, card)
-        (card.color, card.fill) = self._identify_color_and_fill(
-            card.image[border_width:-border_width,border_width:-border_width],
-            mask[border_width:-border_width,border_width:-border_width])
-
-        return card
+        return mask
 
     def _intersection_over_union(self, im1, im2):
         intersection = np.sum(cv2.bitwise_and(im1, im2))
@@ -126,13 +142,13 @@ class HandTunedCardAnalyzer:
             at interpreting contours as shapes.
 
         :param mask: Input mask (background = 0, feature_pixels = 255)
-        :return: (count, shape, qualtiy_score)
+        :return: (count, shape, quality_score)
         """
         best_match_score = -1
         best_match_card = card # None
         for template_card in self.mask_library:
 
-            # matchTemplate might be more robust??? However, IOU is definititely faster by 15-20x
+            # cv2.matchTemplate might be a bit more robust, but it's SLOW..IoU is 15-20x faster
             # match_score = cv2.matchTemplate(mask, template_card.image, cv2.TM_CCOEFF_NORMED)
             match_score = self._intersection_over_union(mask, template_card.image)
 
@@ -141,41 +157,42 @@ class HandTunedCardAnalyzer:
                 best_match_card = template_card
 
         # Dev only: diagnostics
-        #     print(f"\tspam...{template_card.shape.value}-{template_card.count.value} | {match_score}")
-        #
-        # for template_card in self.mask_library:
-        #
-        #     match_score = self._intersection_over_union(mask, template_card.image)
-        #
-        #     if match_score > .99*best_match_score:
-        #         cv2.imshow(f"Intersection:{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}",
-        #                    cv2.bitwise_and(mask, template_card.image))
-        #
-        #         cv2.imshow(f"Union:{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}",
-        #                    cv2.bitwise_or(mask, template_card.image))
-        #         print(f"\t{best_match_card.shape.value}-{best_match_card.count.value} | {match_score}")
-        # print(f"Best_Match_Score for ({best_match_card.shape.value}-{best_match_card.count.value}: {best_match_score}")
+        if self.diagnostic_mode:
+            for template_card in self.mask_library:
+
+                match_score = self._intersection_over_union(mask, template_card.image)
+
+                if match_score > .9999*best_match_score and card.index==0:
+                    label = f"{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}"
+                    label = "" # simple print (less windows)
+                    cv2.imshow(f"Intersection:{label}",
+                               cv2.bitwise_and(mask, template_card.image))
+
+                    cv2.imshow(f"Union:{label}",
+                               cv2.bitwise_or(mask, template_card.image))
+                    print(f"\t{best_match_card.shape.value}-{best_match_card.count.value} | {match_score}")
+            print(f"Best_Match_Score for ({best_match_card.shape.value}-{best_match_card.count.value}: {best_match_score}")
 
         return (best_match_card.count, best_match_card.shape, best_match_score)
 
-    def _identify_color_and_fill(self, image, inner_mask):
-
+    def _identify_color_and_fill(self, image, inner_mask, id):
         # Create mask for white 'outer' area of card
         shape = inner_mask.shape
         outer_mask = np.zeros(shape, np.uint8) + 255
         idx = (inner_mask != 0)
         outer_mask[idx] = 0
 
-        erosion_size = 20 # 3-5 seems like a good range to remove color blur from edges
+        thickness_of_edge_mask_as_fraction = 1./20
+        erosion_size = int(((shape[0]*shape[1])**.5)*thickness_of_edge_mask_as_fraction) # 3-5 seems like a good range to remove color blur from edges # TODO: scale to Card Dimensions
         erosion_shape = cv2.MORPH_ELLIPSE
         element = cv2.getStructuringElement(erosion_shape, (2 * erosion_size + 1, 2 * erosion_size + 1),
                                  (erosion_size, erosion_size))
         inner_mask = cv2.erode(inner_mask, element, iterations=1)
 
-        erosion_size = 0
-        element = cv2.getStructuringElement(erosion_shape, (2 * erosion_size + 1, 2 * erosion_size + 1),
-                                 (erosion_size, erosion_size))
-        outer_mask = cv2.erode(outer_mask, element, iterations=1)
+        # erosion_size = 0 # TODO: scale to Card Dimensions
+        # element = cv2.getStructuringElement(erosion_shape, (2 * erosion_size + 1, 2 * erosion_size + 1),
+        #                          (erosion_size, erosion_size))
+        # outer_mask = cv2.erode(outer_mask, element, iterations=1)
 
         contour_hidden_mask = cv2.bitwise_or(inner_mask,outer_mask)
         contour_exposed_mask = cv2.bitwise_not(contour_hidden_mask)
@@ -194,8 +211,6 @@ class HandTunedCardAnalyzer:
         H, S, V = 0, 1, 2
         hsv_color = cv2.cvtColor(color, cv2.COLOR_BGR2HSV)
         hue = hsv_color[0][0][H]
-        # hue = np.mean(masked[:, :, H], where=contour_exposed_mask.astype(bool))
-        # (hue, _) = cv2.meanStdDev(image[:, :, H], mask=contour_exposed_mask)
         color_table = [Color.red, Color.green, Color.purple, Color.red]
 
         while hue > 180:
@@ -220,17 +235,19 @@ class HandTunedCardAnalyzer:
         #     import random
         #     cv2.imshow(f"Swatch-{i}", swatch)
 
-        # print(f"Hue: {card_color} ({hue})")
 
-        # disp_im = np.zeros_like(image)
-        # disp_im[:,:,S] = 255. # Saturating the color helps a ton, especially for the striped/empty shapes (use before converting back to BGR)
-        # disp_im[:,:,V] = 255.
-        # disp_im[:,:,H] = hue
-        # disp_im = cv2.bitwise_and(disp_im, disp_im, mask=contour_exposed_mask)
-        # disp_im = cv2.cvtColor(disp_im, cv2.COLOR_HSV2BGR)
-        # cv2.imshow(f"Show silhouette color", disp_im)
-        # import random
-        # cv2.imshow(f"Show silhouette color-{random.randint(0,10)}", disp_im)
+        if self.diagnostic_mode:
+            print(f"Hue: {card_color} ({hue})")
+
+            disp_im = np.zeros_like(image)
+            disp_im[:,:,S] = 255. # Saturating the color helps a ton, especially for the striped/empty shapes (use before converting back to BGR)
+            disp_im[:,:,V] = 255.
+            disp_im[:,:,H] = hue
+            disp_im = cv2.bitwise_and(disp_im, disp_im, mask=contour_exposed_mask)
+            disp_im = cv2.cvtColor(disp_im, cv2.COLOR_HSV2BGR)
+            masked_view = cv2.bitwise_and(image, image, mask=contour_exposed_mask)
+            cv2.imshow(f"Color: Masked Image", cv2.resize(masked_view, (400,600)))
+            cv2.imshow(f"Show silhouette color-{id}", disp_im)
 
 
 
@@ -270,24 +287,18 @@ class HandTunedCardAnalyzer:
 
         if saturation_ratio > 9:
             fill = Fill.solid
-        elif saturation_ratio > 1.3: # ????
+        elif saturation_ratio > 2: # ????
             fill = Fill.striped
         else:
             fill = Fill.empty
 
-        # Consider separate thresholds by color: empty should all be the same, but striped and solid vary
-        # Purple tends to be a bit lower than green and red)...
-        #    Alternately, we could add in color analysis on the center, so see if we find colored fill
-        #    Note that detecting the "stripe" pattern is not helpful...It works in high quality images; however,
-        #    everything works in high quality images. The stripes blur into non-existance before this method fails.
-
         ### Display the fill region (for development only)
-        # hsv_image[:,:,H] = 0.
-        # hsv_image[:,:,V] = 255.
-        # image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
-        # image = cv2.bitwise_and(image, image, mask=inner_mask)
-        # cv2.imshow(f"r{saturation/background_saturation}-s{saturation}-b{background_saturation}-", image)
+        if self.diagnostic_mode:
+            hsv_image[:,:,V] = 255.
+            image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
+            image = cv2.bitwise_and(image, image, mask=inner_mask)
+            cv2.imshow("Fill: Masked (Value@255)", image)
 
-        print(f"r{saturation/background_saturation}-s{saturation}-b{background_saturation}-")
+            print(f"r{saturation/background_saturation}-s{saturation}-b{background_saturation}-")
 
         return (card_color, fill)

@@ -6,9 +6,9 @@ from matplotlib import pyplot as plt
 import CardAnalyzer
 import Card
 
-CARD_WIDTH = 400    #Width of extracted card images
-CARD_HEIGHT = 600   #Height of extracted card images
-MIN_CARD_SIZE = 5000   #Minimum pixel count for a blob to be considered a card
+CARD_WIDTH = 100    #Width of extracted card images
+CARD_HEIGHT = 150   #Height of extracted card images
+MIN_CARD_SIZE = 3000   #Minimum pixel count for a blob to be considered a card
 MAX_CARD_SIZE = 100000
 MIN_CARD_CURVATURE = .10 #min_curvature, aka "epsilon" is the allowable curvature as a fraction of the arclength
 BLUR = 11

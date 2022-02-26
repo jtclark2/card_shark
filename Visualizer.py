@@ -52,13 +52,22 @@ class Visualizer:
         :return: The image with text overlaid
         """
         # image = imutils.resize(image, width=display_width)
-        text_size = 30 # in pixels
         x,y = text_size//6, text_size//6
         for key in key_dict:
             y += text_size
             cv2.putText(image, key, (x, y), cv2.FONT_HERSHEY_SIMPLEX,
                         text_size/30, key_dict[key], text_size//12)
             cv2.putText
+        return image
+
+    @staticmethod
+    def display_fps(image, fps,  text_size=30):
+        text_size = 30 # in pixels
+        white = [255, 255, 255]
+        x,y = image.shape[1] - text_size//6-160, image.shape[0] - text_size//6-35
+        y += text_size
+        cv2.putText(image, f"FPS: {fps: .1f}", (x, y), cv2.FONT_HERSHEY_SIMPLEX,
+                    text_size/30, white, text_size//12)
         return image
 
     @staticmethod

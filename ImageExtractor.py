@@ -163,10 +163,21 @@ class ImageExtractor:
         for ROI in ROIs:
             perimeter = cv2.arcLength(ROI.contour, True)
             vertices = cv2.approxPolyDP(ROI.contour, MIN_CARD_CURVATURE * perimeter, True)
+
+
             if (len(vertices) == 4):
+                vertices = self._order_vertices(vertices)
+
+                area_quadrilateral = \
+                (1/2) * ( (vertices[0][0]*vertices[1][1] + vertices[1][0]*vertices[2][1] + vertices[2][0]*vertices[3][1] + vertices[3][0]*vertices[0][1]) \
+                        - (vertices[1][0]*vertices[0][1] + vertices[2][0]*vertices[1][1] + vertices[3][0]*vertices[2][1] + vertices[0][0]*vertices[3][1]) )
+                area_contour = cv2.contourArea(ROI.contour)
+                # print(f"ratios: {area_quadrilateral/area_contour}") #, {area12/area_contour}, {area23/area_contour}, {area34/area_contour}, {area41/area_contour}")
+
                 (x, y, w, h) = cv2.boundingRect(vertices)
                 ar = w / float(h)
-                if(.5 < ar and ar < (1/.5)): #intentionally wide, I've seen valid cards as low as 0.6
+                # if (.5 < ar < (1 / .5) # This was a loose approx, and the quadrilateral addresses this and more
+                if(area_quadrilateral/area_contour < 1.0): #intentionally wide, I've seen valid cards as low as 0.6
                     ROI.vertices = vertices
                     filtered_ROIs.append(ROI)
 
@@ -178,13 +189,10 @@ class ImageExtractor:
         :param ROIs:
         :return:
         """
-        # TODO: Add unit test to ensure that order is maintained, such that
-        # ROI[idx] matches images[idx]
 
         images = []
         for ROI in ROIs:
-            vertices = self._order_vertices(ROI.vertices)
-            images.append( self._transform_and_extract_image(image, vertices) )
+            images.append( self._transform_and_extract_image(image, ROI.vertices) )
 
         return images
 
@@ -250,7 +258,6 @@ class ImageExtractor:
         else:
             vertices = np.float32(
                 [point[1], point[2], point[3], point[0]])
-
 
         return vertices
 

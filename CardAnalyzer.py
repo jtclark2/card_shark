@@ -178,18 +178,11 @@ class HandTunedCardAnalyzer:
         if self.diagnostic_mode:
             print(shape)
             print(area_contour / area_box, area_contour / area_hull, area_box, area_hull, area_contour)
-            # cv2.drawContours(image=card.image,
-            #                  contours=contours,
-            #                  contourIdx=-1,
-            #                  color=[0, 255, 255],
-            #                  thickness=4)
-            # cv2.drawContours(image=card.image,
-            #                  contours=hull,
-            #                  contourIdx=-1,
-            #                  color=[255, 0, 255],
-            #                  thickness=4)
-            # cv2.rectangle(card.image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            # cv2.imshow("Card Contours", card.image)
+            display_image = card.image.copy()
+            cv2.drawContours(display_image, contours, -1, color=[0, 255, 255], thickness=4)
+            cv2.drawContours(display_image, hull, -1, color=[255, 0, 255], thickness=4)
+            cv2.rectangle(display_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.imshow("Card Contours", display_image)
         return shape
 
     def construct_feature_mask(self, card):
@@ -401,9 +394,8 @@ class HandTunedCardAnalyzer:
             disp_im[:, :, H] = hue
             disp_im = cv2.bitwise_and(disp_im, disp_im, mask=contour_exposed_mask)
             disp_im = cv2.cvtColor(disp_im, cv2.COLOR_HSV2BGR)
-            masked_view = cv2.bitwise_and(image, image, mask=contour_exposed_mask)
-
-            # make image size whatever works for your eyes
-            cv2.imshow(f"Color: Masked Image", cv2.resize(masked_view, (400, 600)))
             cv2.imshow(f"Show silhouette color-{id}", cv2.resize(disp_im, (400, 600)))
+
+            masked_view = cv2.bitwise_and(image, image, mask=contour_exposed_mask)
+            cv2.imshow(f"Color: Masked Image", cv2.resize(masked_view, (400, 600)))
         return card_color, hue

@@ -137,7 +137,6 @@ class SetPlayer:
                - Full Deck:                  3 * (81/3)! / (3! * (81/3-3)!) + (81/3)^2 = 9504
 
         """
-        # TODO: Should we fix this here, or just in the enumerations?
         if len(cards) != len(set(cards)):
             return [] # a duplicate card implies our identification failed
 
@@ -147,14 +146,14 @@ class SetPlayer:
 
         valid_sets = []
 
-        # same
+        # same color case
         for color_matched_cards in [red_cards, green_cards, purple_cards]:
             potential_sets = self.combinations_of_three(color_matched_cards)
             for potential_set in potential_sets:
                 if self._check_set(potential_set):
                     valid_sets.append(potential_set)
 
-        # different
+        # different colors case
         purple_cards = {card: card for card in purple_cards}# set(purple_cards) # index lookup is much faster than looping through a list
         for red_card in red_cards:
             for green_card in green_cards:
@@ -175,19 +174,13 @@ class SetPlayer:
         attributes = ['shape', 'color', 'count', 'fill']
 
         # Check for set (each card must match or all 3 must be unique). Check each attribute independently
-        try:
-            card1, card2, card3 = [card for card in set_of_cards]
-        except:
-            # TODO: This catch only here for testing, after seeing that only 2 values were unpacked instead of 3
-            print([card for card in set_of_cards])
-            raise
+        card1, card2, card3 = [card for card in set_of_cards]
         for attribute in attributes:
             attributes = set([getattr(card1, attribute), getattr(card2, attribute), getattr(card3, attribute)])
             if len(attributes) == 2:
                 return False
         return True
 
-# TODO: Consider a better place for this function, but this will do for now
 def deal(n):
     """
     Deals n cards from a set deck, without repeats.
@@ -203,7 +196,6 @@ def deal(n):
         for color in Color:
             for count in Count:
                 for fill in Fill:
-                    # TODO: might want to move image to the end of the params
                     deck.append(Card(None, shape, color, count, fill))
     random.shuffle(deck)
     return deck[0:n]

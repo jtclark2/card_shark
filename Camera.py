@@ -41,25 +41,8 @@ class Camera:
         print(f"Camera Resolution: ({self.cap.get(CV_CAP_PROP_FRAME_WIDTH)}, {self.cap.get(CV_CAP_PROP_FRAME_HEIGHT)})")
         self.shape = (int(self.cap.get(CV_CAP_PROP_FRAME_WIDTH)), int(self.cap.get(CV_CAP_PROP_FRAME_HEIGHT)))
 
-        # Intentionally set to specific values
-        # self.cap.set(CV_CAP_PROP_FRAME_WIDTH, 1920)
-        # self.cap.set(CV_CAP_PROP_FRAME_HEIGHT, 1080)
-        # self.cap.set(CV_CAP_PROP_SATURATION, 100) # 0 - 100, values outside this range are ignored
-        # self.cap.set(CV_CAP_PROP_HUE, 100)
-
-        # self.cap.set(CV_CAP_PROP_MODE, 1)
-        self.cap.set(CV_CAP_PROP_FPS, 4)
-        # self.cap.set(CV_CAP_PROP_BRIGHTNESS, 10)
-        # self.cap.set(CV_CAP_PROP_CONTRAST, 255)
-        # self.cap.set(CV_CAP_PROP_CONVERT_RGB, True)
-
-        # set so that they wouldn't auto-adjust on me
-
-        # Not supported with my hardware
-        # cap.set(CV_CAP_PROP_WHITE_BALANCE_U, 99) # not supported with my current camera
-        # cap.set(CV_CAP_PROP_WHITE_BALANCE_V, 99) # not supported with my current camera
-        # cap.set(CV_CAP_PROP_EXPOSURE, -3) # not supported with my current camera
-        # cap.set(CV_CAP_PROP_GAIN, 0) # not supported with my current camera
+        # self.cap.set(CV_CAP_PROP_FPS, 2)
+        # self.cap.set(CV_CAP_PROP_CONVERT_RGB, 1)
 
     def read(self):
         """

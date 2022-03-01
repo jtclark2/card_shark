@@ -117,7 +117,6 @@ class ImageExtractor:
         # Gaussian blur is preferred for it's local smoothness, but it is VERY slow
         # Rescale image and operate in low res then scale back up to apply
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # light_correction = cv2.medianBlur(gray, 201, 0) #Correct aberation in image (brighter in center)
         height, width = gray.shape
         small_gray = cv2.resize(gray, (int(width/10), int(height/10)))
         light_correction = cv2.GaussianBlur(small_gray, (int(width/20)*2+1, int(width/20)*2+1), 0) #Reduce noise in the image

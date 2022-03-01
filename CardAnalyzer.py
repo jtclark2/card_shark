@@ -200,7 +200,8 @@ class HandTunedCardAnalyzer:
         :param mask: Input mask (background = 0, feature_pixels = 255)
         :return: (count, shape, quality_score)
         """
-        best_match_score = -1
+        self.junk_shape_thresh = .6
+        best_match_score = self.junk_shape_thresh
         best_match_card = card # None
         for template_card in self.mask_library:
 
@@ -214,20 +215,21 @@ class HandTunedCardAnalyzer:
 
         # Dev only: diagnostics
         if self.diagnostic_mode:
-            for template_card in self.mask_library:
+            if best_match_card.shape is not None:
+                for template_card in self.mask_library: # Use this to see how close competing matches were
+                    match_score = self._intersection_over_union(mask, template_card.image)
+                    if match_score > .9999*best_match_score and card.index==0:
+                        label = f"{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}"
+                        label = "" # simple print (less windows)
+                        cv2.imshow(f"Intersection:{label}",
+                                   cv2.bitwise_and(mask, template_card.image))
 
-                match_score = self._intersection_over_union(mask, template_card.image)
-
-                if match_score > .9999*best_match_score and card.index==0:
-                    label = f"{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}"
-                    label = "" # simple print (less windows)
-                    cv2.imshow(f"Intersection:{label}",
-                               cv2.bitwise_and(mask, template_card.image))
-
-                    cv2.imshow(f"Union:{label}",
-                               cv2.bitwise_or(mask, template_card.image))
-                    print(f"\t{best_match_card.shape.value}-{best_match_card.count.value} | {match_score}")
-            print(f"Best_Match_Score for ({best_match_card.shape.value}-{best_match_card.count.value}: {best_match_score}")
+                        cv2.imshow(f"Union:{label}",
+                                   cv2.bitwise_or(mask, template_card.image))
+                        print(f"\t{best_match_card.shape.value}-{best_match_card.count.value} | {match_score}")
+                print(f"Shape:({best_match_card.shape.value}, Fill/Texture: {best_match_card.count.value}, score: {best_match_score}")
+            else:
+                print(f"Shape: None, Fill: None...All scores below: {self.junk_shape_thresh} ")
 
         return (best_match_card.count, best_match_card.shape, best_match_score)
 
@@ -285,7 +287,7 @@ class HandTunedCardAnalyzer:
             image = cv2.bitwise_and(image, image, mask=offset_inner_mask)
             cv2.imshow("Fill: Masked (Value@255)", image)
 
-            print(f"r{saturation/background_saturation}-s{saturation}-b{background_saturation}-")
+            print(f"Fill: {fill} ratio: {saturation_ratio}, shape:{saturation}, background: b{background_saturation}-")
         return fill, saturation_ratio
 
     def identify_color(self, image, offset_inner_mask, outer_mask):

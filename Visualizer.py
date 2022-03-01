@@ -43,7 +43,7 @@ class Visualizer:
                 image = Visualizer._annotate_card(image, card, contours[card.index], text_size=text_size)
 
     @staticmethod
-    def overlay_color_key(image, key_dict, text_size=30):
+    def overlay_color_key(image, key_dict, text_size=1.0):
         """
 
         :param image: The image to overlay text on top of
@@ -51,13 +51,13 @@ class Visualizer:
         :param text_size: Size that text will be display in (size in pixels)
         :return: The image with text overlaid
         """
-        # image = imutils.resize(image, width=display_width)
-        x,y = text_size//6, text_size//6
+        x,y = image.shape[1] - int(text_size*215), int(text_size*5)
+        text_thickness = int(text_size * 2)
+        spacing = int(text_size * 30)
         for key in key_dict:
-            y += text_size
+            y += spacing
             cv2.putText(image, key, (x, y), cv2.FONT_HERSHEY_SIMPLEX,
-                        text_size/30, key_dict[key], text_size//12)
-            cv2.putText
+                        text_size, key_dict[key], text_thickness)
         return image
 
     @staticmethod
@@ -102,12 +102,13 @@ class Visualizer:
         :return: The updated image, with contours added.
         """
         text_size = text_size
-        spacing = int(text_size * 20)
+        spacing = int(text_size * 30)
         text_thickness = int(text_size * 2)
 
-        cX_offset = -20
-        cY_offset = -20
+        cX_offset = int(-40*text_size)
+        cY_offset = int(-20*text_size)
 
+        # Find Center of card
         M = cv2.moments(contour)
         cX = int(M['m10']/M['m00']) + cX_offset
         cY = int(M['m01']/M['m00']) + cY_offset

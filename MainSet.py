@@ -1,6 +1,5 @@
 import time
 import cv2
-import imutils
 
 import ImageExtractor
 import CardAnalyzer
@@ -8,22 +7,24 @@ import SetPlayer
 from Visualizer import Visualizer
 import Camera
 import Card
+import KeyboardInput
 
 
 ######## Configuration setup #########
-SOURCE_TYPE = "video" # "image"
+SOURCE_TYPE = "video"
+SOURCE_TYPE = "image"
 
 if SOURCE_TYPE == "video":
     # Either camera index or a video
-    VIDEO_SOURCE = "Attempt2_WithoutGraphics.avi"
-    VIDEO_SOURCE = 1
+    VIDEO_SOURCE = "Attempt1_WithoutGraphics.avi"
+    # VIDEO_SOURCE = 1
 
     if type(VIDEO_SOURCE) == str:
         VIDEO_SOURCE = f"VideoLibrary/{VIDEO_SOURCE}"
 
     record_video = False
     if record_video:
-        FRAME_RATE = 8.0
+        FRAME_RATE = 24.0
         OUTPUT_FILE = "Output.avi"
         OUTPUT_VIDEO_PATH = f"VideoLibrary/Output_{FRAME_RATE}FPS_{OUTPUT_FILE}"
         raw = False
@@ -32,16 +33,18 @@ if SOURCE_TYPE == "video":
 else:
     IMG_NAME = "IMG_6394.JPG"
     IMG_NAME = "WebCam1.PNG"
-    # IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
+    IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
     # IMG_NAME = "RedReadsGreen.jpg" # looks like a rollover error in hue space
     # IMG_NAME = "CaptureBright.jpg"
     # IMG_NAME = "CaptureBackOfBox.jpg"
     # IMG_NAME = "ReadsAsThree.jpg"
     # IMG_NAME = "CaptureCardContourIssue.jpg"
+    # IMG_NAME = "CaptureBright.jpg"
+    # IMG_NAME = "CaptureBackOfBox.jpg"
 
     IMG_PATH = f"ImageLibrary/{IMG_NAME}"
 
-OUTPUT_WIDTH = 1000
+OUTPUT_WIDTH = 480
 
 color_table = {
     "Raw_Contour": [0, 0, 255],  # Blue
@@ -59,8 +62,8 @@ def image_pipeline(image, image_extractor, color_table, player):
     start = time.perf_counter()
     images = image_extractor.detect_cards(image)
     extract_time = f"{time.perf_counter() - start: .5f}"
+
     start = time.perf_counter()
-    # cards = image_extractor.identify_cards(images)
     cards = []
     for idx, card_image in enumerate(images):
         card = Card.Card(index=idx, image=card_image)
@@ -68,6 +71,7 @@ def image_pipeline(image, image_extractor, color_table, player):
         if card is not None:
             cards.append(card)
     id_time = f"{time.perf_counter() - start: .5f}"
+
     start = time.perf_counter()
     sets = player.find_sets(cards)
     play_time = f"{time.perf_counter() - start: .5f}"
@@ -75,51 +79,45 @@ def image_pipeline(image, image_extractor, color_table, player):
     start = time.perf_counter()
     display_image = image.copy() # Create a copy to add graphics on top of
     Visualizer.overlay_ROIs(display_image, image_extractor.ROIs, color=color_table["Raw_Contour"], line_thickness=3)
-    Visualizer.overlay_cards(cards, display_image, image_extractor.card_ROIs, color=color_table["Card"], line_thickness=3)
+    Visualizer.overlay_cards(cards, display_image, image_extractor.card_ROIs, color=color_table["Card"],
+                             line_thickness=3, text_size=1.5)
 
     if len(sets) > 0:
-        Visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"], line_thickness=3, text_size=.5)
+        Visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"],
+                                 line_thickness=3, show_labels=True, text_size=1.5)
 
-    image = Visualizer.overlay_color_key(display_image, color_table, text_size=20)
+    image = Visualizer.overlay_color_key(display_image, color_table, text_size=1.8)
     fps = 1 / (time.perf_counter() - tic)
     image = Visualizer.display_fps(display_image, fps)
 
-    # TODO: cv2.resize causes some aliasing, but removes the imutils dependency (and that library has proven pretty unstable)
+    # TODO: cv2.resize causes minor aliasing, but removes the imutils dependency (which has been a bit unstable)
     shape = image.shape
     image = cv2.resize(image, (OUTPUT_WIDTH*shape[1]//shape[0], OUTPUT_WIDTH))
     # image = imutils.resize(image, width=OUTPUT_WIDTH)
-    cv2.imshow("Rich Diagnostic View", image)
-
-
-    display_time = f"{time.perf_counter() - start: .5f}"
-    # print(extract_time, id_time, play_time, display_time)
+    cv2.imshow("Game Window", image)
+    overlay_time = f"{time.perf_counter() - start: .5f}"
+    print(extract_time, id_time, play_time, overlay_time)
     return image
 
 # Read image, process, display image, and plot all cards found
 if SOURCE_TYPE == "image":
     image = cv2.imread(IMG_PATH)
+    print(f"Shape of incoming image: {image.shape}")
 
-    processed_image = image_pipeline(image, image_extractor, color_table, player)
-    Visualizer.plot_extracted_cards(image_extractor.card_images)
-
-    # Use to save results to share/show (saves processed form)
     while True:
-        key_input = cv2.waitKey(1)
-        if (key_input & 0xFF == ord('s')):  # Save
-            name = "ImageLibrary/Capture%s.jpg" % repr(time.time())
-            cv2.imwrite(name, processed_image)
-        if (key_input & 0xFF == ord('q')):  # Quit
-            cv2.destroyAllWindows()
+        processed_image = image_pipeline(image, image_extractor, color_table, player)
+        if KeyboardInput.listenToKeyBoard(image, image_extractor, card_analyzer):
             break
+    Visualizer.plot_extracted_cards(image_extractor.card_images)
 
 # Loop image capture and save/quit key interactions
 if SOURCE_TYPE == "video":
     cam = Camera.Camera(VIDEO_SOURCE) # Starts at 0 (built-in laptop cam is usually 0, and USB cam is usually 1)
     cam.configure()
     image = cam.read()
+
     if image is None:
         raise ConnectionRefusedError("Did you remember to plug in the camera, and kill the other programs?")
-
 
     if record_video:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -129,7 +127,6 @@ if SOURCE_TYPE == "video":
             shape = (OUTPUT_WIDTH, OUTPUT_WIDTH*cam.shape[1]//cam.shape[0])
 
         vid_writer = cv2.VideoWriter(OUTPUT_VIDEO_PATH, fourcc, FRAME_RATE, shape)
-
 
     while(True):
         image = cam.read() # Capture frame-by-frame
@@ -144,55 +141,8 @@ if SOURCE_TYPE == "video":
         if record_video and not raw:
             vid_writer.write(processed_image)
 
-        key_input = cv2.waitKey(1)
-        if (key_input & 0xFF == ord('s')): # Save
-            name = "ImageLibrary/Capture%s.jpg" % repr(time.time())
-            cv2.imwrite(name, image)
-
-        # Automatic calibration (requires 1 card of each color, all striped)
-        if (key_input & 0xFF == ord('c')): # Calibrate
-            images = image_extractor.detect_cards(image)
-            cards = image_extractor.identify_cards(images)
-            card_analyzer.calibrate(cards)
-
-        # Manual-ish calibrations
-        if (key_input & 0xFF == ord('[')):
-            card_analyzer.empty_striped_thresh -= 0.05
-            print(f"Adjusted empty_striped_thresh: {card_analyzer.empty_striped_thresh}")
-        if (key_input & 0xFF == ord(']')):
-            card_analyzer.empty_striped_thresh += 0.05
-            print(f"Adjusted empty_striped_thresh: {card_analyzer.empty_striped_thresh}")
-
-        if (key_input & 0xFF == ord('(')):
-            card_analyzer.striped_solid_thresh -= 0.1
-            print(f"Adjusted empty_striped_thresh: {card_analyzer.striped_solid_thresh}")
-        if (key_input & 0xFF == ord(')')):
-            card_analyzer.striped_solid_thresh += 0.1
-            print(f"Adjusted empty_striped_thresh: {card_analyzer.striped_solid_thresh}")
-
-
-        # Color calibrations: Requires 1 card of that color
-        if (key_input & 0xFF == ord('p')):
-            images = image_extractor.detect_cards(image)
-            cards = image_extractor.identify_cards(images)
-            card_analyzer.calibrate_single_color(cards[0], Card.Color.purple)
-
-        if (key_input & 0xFF == ord('r')):
-            images = image_extractor.detect_cards(image)
-            cards = image_extractor.identify_cards(images)
-            card_analyzer.calibrate_single_color(cards[0], Card.Color.red)
-
-        if (key_input & 0xFF == ord('g')):
-            images = image_extractor.detect_cards(image)
-            cards = image_extractor.identify_cards(images)
-            card_analyzer.calibrate_single_color(cards[0], Card.Color.green)
-
-        if (key_input & 0xFF == ord('d')):  # Diagnostic mode toggle
-            card_analyzer.diagnostic_mode = not card_analyzer.diagnostic_mode
-
-        if (key_input & 0xFF == ord('q')): # Quit
+        if KeyboardInput.listenToKeyBoard(image, image_extractor, card_analyzer):
             cam.release()
             if record_video:
                 vid_writer.release()
-            cv2.destroyAllWindows()
             break

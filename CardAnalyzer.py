@@ -58,7 +58,7 @@ class HandTunedCardAnalyzer:
                           "high_red":185}
 
     def calibrate_single_color(self, card, color):
-        mask = self.construct_feature_mask(card)
+        mask, _ = self.construct_feature_mask(card)
         offset_inner_mask, outer_mask = self.create_offset_masks(card.image, mask)
         _, hue = self.identify_color(card.image, offset_inner_mask, outer_mask)
 
@@ -120,14 +120,18 @@ class HandTunedCardAnalyzer:
         :param image: Rectangular image of a SET card.
         :return: Card, with appropriately defined color, shape, fill, and count
         """
+        if self.diagnostic_mode:
+            print(f"############# Index: {card.index} #############")
         card.image = self.crop_standard(card.image)
 
         start = time.perf_counter()
-        mask = self.construct_feature_mask(card)
+        mask, contours = self.construct_feature_mask(card)
         feature_mask_time = f"{time.perf_counter() - start: .5f}"
 
         start = time.perf_counter()
-        (card.count, card.shape, _) = self._identify_count_and_shape(mask, card)
+        card.count = self._identify_count(contours)
+        card.shape = self._identify_shape(contours,card)
+        # (card.count, card.shape, _) = self._identify_count_and_shape(mask, card, contours)
         count_and_shape_time = f"{time.perf_counter() - start: .5f}"
 
         start = time.perf_counter()
@@ -136,6 +140,57 @@ class HandTunedCardAnalyzer:
 
         # print(feature_mask_time, count_and_shape_time, color_and_fill_time)
         return card
+
+    def _identify_count(self, contours):
+        if len(contours) == 1:
+            count = Count.one
+        elif len(contours) == 2:
+            count = Count.two
+        elif len(contours) == 3:
+            count = Count.three
+        else:
+            count = None
+
+        if self.diagnostic_mode:
+            print(count)
+
+        return count
+
+    def _identify_shape(self, contours, card):
+        if len(contours) == 0:
+            return None
+
+        hull = cv2.convexHull(contours[0])
+        x, y, w, h = cv2.boundingRect(contours[0])
+
+        area_box = w*h
+        area_hull = cv2.contourArea(hull)
+        area_contour = cv2.contourArea(contours[0])
+
+        if (area_contour / area_hull < .9):
+            shape = Shape.wisp
+        else:
+            if (area_contour / area_box < .7):
+                shape = Shape.diamond
+            else:
+                shape = Shape.stadium
+
+        if self.diagnostic_mode:
+            print(shape)
+            print(area_contour / area_box, area_contour / area_hull, area_box, area_hull, area_contour)
+            # cv2.drawContours(image=card.image,
+            #                  contours=contours,
+            #                  contourIdx=-1,
+            #                  color=[0, 255, 255],
+            #                  thickness=4)
+            # cv2.drawContours(image=card.image,
+            #                  contours=hull,
+            #                  contourIdx=-1,
+            #                  color=[255, 0, 255],
+            #                  thickness=4)
+            # cv2.rectangle(card.image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            # cv2.imshow("Card Contours", card.image)
+        return shape
 
     def construct_feature_mask(self, card):
         start = time.perf_counter()
@@ -162,14 +217,14 @@ class HandTunedCardAnalyzer:
 
         # Find threshold and extract contours
         thresh_val, thresh_img = cv2.threshold(balanced, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        contours = cv2.findContours(thresh_img, cv2.RETR_EXTERNAL,
-                                    cv2.CHAIN_APPROX_SIMPLE)
+        contours = cv2.findContours(thresh_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contour_time = f"{time.perf_counter() - start: .5f}"
         start = time.perf_counter()
 
         # Quirky behavior in opencv (the magic numbers are major versions)
         major_version = int(cv2.__version__[0])  # I've primarily tested with v4.4.x
         contours = contours[0] if major_version in [2, 4] else contours[1]  # contour formatting is version dependant
+
 
         # Filter noisy junk contours
         contours = [c for c in contours if cv2.contourArea(c) >= self.MIN_SHAPE_AREA]
@@ -183,38 +238,33 @@ class HandTunedCardAnalyzer:
         draw_time = f"{time.perf_counter() - start: .5f}"
         # print(gray_time, light_corr_time, contour_time, filter_time, draw_time)
 
-        return mask
+        return mask, contours
 
     def _intersection_over_union(self, im1, im2):
         intersection = np.sum(cv2.bitwise_and(im1, im2))
         union = np.sum(cv2.bitwise_or(im1, im2))
         return intersection/union
 
-    def _identify_count_and_shape(self, mask, card):
+    def _identify_count_and_shape(self, mask, card, contours):
         """
         Purpose: Identify count and shape of the symbols on a card. There are only 9 possible silhouettes,
             describes by the combinations of 3 shapes and 3 counts. Since this is a reasonable number, it is reasonably
             easy to save idealized versions of these, and compare all future possibilities to those.
+
+            This was my primary approach for a while, but I realized I could hand-tune them, and have now broken this
+            into _identify_countm and _identify_shape. I'm leaving this in case I ever want to generalize to other
+            card games. It still works very well, and with new silhouettes, it can work with any deck!
 
         Advantages: Generalizes very well to new games (just grab a new set of silhouettes). Reasonably robust...works
         99.9% of the time.
         Distadvantages:
             - Cards and camera need to be perfectly still...as they blur, everything starts to look more round,
              like a stadium.
-            - Not 100%...I can do better
-
-        I'm pretty sure I could do better:
-                - Thin out the shape with the inner mask or something similar (maybe a vertical-only erode),
-                and then analyze the curvature along the top/bottom edges.
-                    - wisp becomes a wavy line (high curvature at edges
-                    - stadium becomes a straight line (no significant curvature)
-                    - Diamond become two sloped lines, with a vertex in the middle
-
-            stadium turns into a pretty simple line.
 
         :param mask: Input mask (background = 0, feature_pixels = 255)
         :return: (count, shape, quality_score)
         """
+
         self.junk_shape_thresh = .6
         best_match_score = self.junk_shape_thresh
         best_match_card = card # None
@@ -232,15 +282,6 @@ class HandTunedCardAnalyzer:
         if self.diagnostic_mode:
             print("#"*50)
             if best_match_card.shape is not None:
-                # for template_card in self.mask_library: # Use this to see how close competing matches were
-                #     match_score = self._intersection_over_union(mask, template_card.image)
-                #     if match_score > .9999*best_match_score and card.index==0:
-                #         label = f"{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}"
-                #         label = "" # simple print (less windows)
-                #         print(f"\t{best_match_card.shape.value}-{best_match_card.count.value} | {match_score}")
-
-                # cv2.imshow(f"Template: {best_match_card.shape}_{best_match_card.count}", cv2.resize(mask, (300, 450)))
-                # cv2.imwrite(f"CardTemplates/T{best_match_card.shape}_{best_match_card.count}.jpg", mask)
                 cv2.imshow(f"Intersection:",
                            cv2.resize(cv2.bitwise_and(mask, best_match_card.image), (400, 600)))
 
@@ -350,6 +391,8 @@ class HandTunedCardAnalyzer:
         # print(hue, hue_error, color_index, card_color)
         if self.diagnostic_mode:
             print(f"Hue: {card_color} ({hue})")
+            if card_color == Color.red and hue == 150:
+                print("problems")
 
             # Maximize satuation and value, and use hue to show a BGR color image with intuitive hue information
             disp_im = np.zeros_like(image)

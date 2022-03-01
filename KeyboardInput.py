@@ -50,4 +50,8 @@ def listenToKeyBoard(image, image_extractor, card_analyzer):
 
     if (key_input & 0xFF == ord('q')):  # Quit
         cv2.destroyAllWindows()
-        return 1
+        return "quit"
+
+    if (key_input & 0xFF == ord(' ')):  # Quit
+        cv2.destroyAllWindows()
+        return "pause"

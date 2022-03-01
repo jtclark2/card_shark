@@ -12,12 +12,12 @@ import KeyboardInput
 
 ######## Configuration setup #########
 SOURCE_TYPE = "video"
-SOURCE_TYPE = "image"
+# SOURCE_TYPE = "image"
 
 if SOURCE_TYPE == "video":
     # Either camera index or a video
     VIDEO_SOURCE = "Attempt2_WithoutGraphics.avi"
-    VIDEO_SOURCE = 1
+    # VIDEO_SOURCE = 1
 
     if type(VIDEO_SOURCE) == str:
         VIDEO_SOURCE = f"VideoLibrary/{VIDEO_SOURCE}"
@@ -131,8 +131,11 @@ if SOURCE_TYPE == "video":
 
         vid_writer = cv2.VideoWriter(OUTPUT_VIDEO_PATH, fourcc, FRAME_RATE, shape)
 
+    pause = False
     while(True):
-        image = cam.read() # Capture frame-by-frame
+        if not pause:
+            image = cam.read() # Capture frame-by-frame
+
         if image is None:
             break
 
@@ -144,8 +147,11 @@ if SOURCE_TYPE == "video":
         if record_video and not raw:
             vid_writer.write(processed_image)
 
-        if KeyboardInput.listenToKeyBoard(image, image_extractor, card_analyzer):
+        action = KeyboardInput.listenToKeyBoard(image, image_extractor, card_analyzer)
+        if action == "quit": # TODO: Enum
             cam.release()
             if record_video:
                 vid_writer.release()
             break
+        if action == "pause":
+            pause = not pause

@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import imutils
 from matplotlib import pyplot as plt
 
 import CardAnalyzer
@@ -72,7 +71,9 @@ class ImageExtractor:
         """
 
         # self.get_histogram(image)
-        resized = imutils.resize(image, width=width)
+        shape = image.shape
+        resized = cv2.resize(image, (width * shape[1] // shape[0], width))
+        # resized = imutils.resize(image, width=width)
         return resized
 
     def detect_cards(self, image):
@@ -140,13 +141,9 @@ class ImageExtractor:
         contours = cv2.findContours(thresh_im.copy(), cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)
 
-        # determine which version of opencv is running...apparently the contour format has changed a few times.
-        if imutils.is_cv2():
-            contours = contours[0]
-        if imutils.is_cv3():
-            contours = contours[1]
-        if imutils.is_cv4():
-            contours = contours[0]
+        # Quirky behavior in opencv (the magic numbers are major versions)
+        major_version = int(cv2.__version__[0])  # I've primarily tested with v4.4.x
+        contours = contours[0] if major_version in [2, 4] else contours[1]  # contour formatting is version dependant
 
         ROIs = []
         self.filtered_contours = []

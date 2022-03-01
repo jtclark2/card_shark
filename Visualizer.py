@@ -1,7 +1,5 @@
 import cv2
-import imutils
 from matplotlib import pyplot as plt
-from enum import Enum
 
 
 class Visualizer:

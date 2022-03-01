@@ -48,13 +48,12 @@ This is a lot of fun, and pretty easy to use. The only trick is setting up the e
 
 ## Setting up the environment
 
-I recommend using conda to create a new env for this install. I'll list You can try with pip, but some of the version
-conflicts get a bit messy(PIL), and imutils isn't available.
+I recommend using conda to create a new env for this install. I haven't tested recently...There were some
+frustrating conflicts between version...hopefully aren't anymore...imutils has been removed, but major version
+changes in opencv were not always tracked by PIL, so you may want to make sure both of those are up-to-date.
 
 `conda create --name card_shark python=3 opencv numpy matplotlib pillow scipy`
 `conda activate card_shark`
-`conda install -c conda-forge opencv=4.1.0`
-`conda install -c conda-forge imutils`
 
 Just got it to work, but I can't isolate all the dependencies...I'll leave a hodgepodge of
 notes here, and start trying to isolate the dependencies later:

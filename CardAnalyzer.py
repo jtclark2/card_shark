@@ -30,8 +30,6 @@ class HandTunedCardAnalyzer:
 
         self.MIN_SHAPE_AREA = self.card_shape[0]*self.card_shape[1]//20
 
-        # TODO: There are magical hand-tuned numbers throughout this class.
-        # I marked these with "TODO: scale to Card Dimensions", and I'm working on cleaning it up
         self.mask_library = []
         LOAD_PATH = "CardTemplates/%s_%s.jpg"
         for shape in Shape: # ('stadium', 'wisp', 'diamond'):
@@ -49,7 +47,7 @@ class HandTunedCardAnalyzer:
         self.count = 0
 
         # calibration defaults
-        self.empty_striped_thresh = 1
+        self.hollow_striped_thresh = 1
         self.striped_solid_thresh = 20
 
         self.hue_table = {"low_red": 5,
@@ -83,7 +81,7 @@ class HandTunedCardAnalyzer:
         it's not going to sort things out
 
         """
-        # print(f"Old Thresholds: -> Empty - ({self.empty_striped_thresh}) - Striped - ({self.striped_solid_thresh}) - Solid <-")
+        # print(f"Old Thresholds: -> Empty - ({self.hollow_striped_thresh}) - Striped - ({self.striped_solid_thresh}) - Solid <-")
         # saturation_ratios = []
         # for card in cards:
         #     mask = self.construct_feature_mask(card)
@@ -303,8 +301,7 @@ class HandTunedCardAnalyzer:
         idx = (inner_mask != 0)
         outer_mask[idx] = 0
         thickness_of_edge_mask_as_fraction = 1. / 15
-        erosion_size = int(((shape[0] * shape[
-            1]) ** .5) * thickness_of_edge_mask_as_fraction)  # 3-5 seems like a good range to remove color blur from edges # TODO: scale to Card Dimensions
+        erosion_size = int(((shape[0] * shape[1]) ** .5) * thickness_of_edge_mask_as_fraction)
         erosion_shape = cv2.MORPH_ELLIPSE
         element = cv2.getStructuringElement(erosion_shape, (2 * erosion_size + 1, 2 * erosion_size + 1),
                                             (erosion_size, erosion_size))
@@ -340,10 +337,10 @@ class HandTunedCardAnalyzer:
 
         if saturation_diff > self.striped_solid_thresh:    # 9 is a reasonable value
             fill = Fill.solid
-        elif saturation_diff > self.empty_striped_thresh:  # 1.5 is a reasonable value
+        elif saturation_diff > self.hollow_striped_thresh:  # 1.5 is a reasonable value
             fill = Fill.striped
         else:
-            fill = Fill.empty
+            fill = Fill.hollow
 
         ### Display the fill region (for development only)
         if self.diagnostic_mode:

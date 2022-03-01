@@ -36,7 +36,7 @@
 #             ###Find Shape
 #             if (len(convex_vertices) == 4):
 #                 shape = Shape.diamond
-#             elif ( (perimeter / area) > .027 ):  #TODO: currently dependant on image scale
+#             elif ( (perimeter / area) > .027 ):
 #                 shape = Shape.wisp
 #             else:
 #                 shape = Shape.stadium
@@ -93,5 +93,5 @@
 #         return Color.red
 #     if(color == "green"):
 #         return Color.green
-#     if(color == "blue"):    #Todo: Yeah, I need to remap (2 wrongs make a right...kind of)
+#     if(color == "blue"):
 #         return Color.purple

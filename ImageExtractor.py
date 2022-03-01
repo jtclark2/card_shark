@@ -73,7 +73,6 @@ class ImageExtractor:
         # self.get_histogram(image)
         shape = image.shape
         resized = cv2.resize(image, (width * shape[1] // shape[0], width))
-        # resized = imutils.resize(image, width=width)
         return resized
 
     def detect_cards(self, image):
@@ -121,11 +120,9 @@ class ImageExtractor:
         height, width = gray.shape
         small_gray = cv2.resize(gray, (int(width/10), int(height/10)))
         light_correction = cv2.GaussianBlur(small_gray, (int(width/20)*2+1, int(width/20)*2+1), 0) #Reduce noise in the image
-        # light_correction = cv2.medianBlur(small_gray, int(width/20)*2+1) #Correct aberation in image (brighter in center)
         light_correction = cv2.resize(light_correction, (width, height))
         light_correction = light_correction - np.amin(light_correction)
 
-        #Todo: Division makes more sense, but gives us a type mistmatch - resolve later
         gray = cv2.subtract(gray, light_correction)
 
         blurred = cv2.medianBlur(gray, BLUR, 0) #Reduce noise in the image
@@ -195,8 +192,7 @@ class ImageExtractor:
 
     def _order_vertices(self, vertices):
         """
-        TODO: Improve docs...I'm pretty sure this method ensures the corners of the card are listed in
-        counterclockwise order> I think I wrote it so that the projection of the cards would be consistent.
+        Purpose: Sort all points in order (based on angle from center of mass)
 
         Operation: The vertices have a few challenges, that we want to tidy up before proceeding.
             1) There is an extra layer of indexing (and it's a middle layer, not outer). I need to
@@ -218,9 +214,6 @@ class ImageExtractor:
         :param vertices: 4 vertices of the card image
         :return: vertices (similar to the input, just better)
         """
-        # TODO: Cleanup - avoid wrapping the extra layer in the first place (may be introduced by lib
-        # compatibility issue
-
         # Unwrap inner index (undoing a previous mistake)
         vertices = np.float32(
             [vertices[0][0], vertices[1][0], vertices[2][0], vertices[3][0]])

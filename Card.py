@@ -34,7 +34,7 @@ class Count(Enum):
 class Fill(Enum):
     solid   = 'solid'
     striped = 'striped'
-    empty   = 'empty'
+    hollow   = 'hollow'
 
     def __repr__(self):
         """Make Printing less noisy"""

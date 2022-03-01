@@ -27,8 +27,6 @@
 #
 #         # convert the L*a*b* array from the RGB color space
 #         # to L*a*b*
-#         # TODO: This colorspace conversation makes sense when using ideal colors,
-#         # but I'm sampling colors empirically
 #         # self.lab = cv2.cvtColor(self.lab, cv2.COLOR_RGB2LAB)
 #
 #     def label(self, image, c):

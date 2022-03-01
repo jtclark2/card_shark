@@ -159,7 +159,7 @@ class SetPlayer:
             for green_card in green_cards:
                 missing_card = self.find_third_card(red_card, green_card)
                 if missing_card in purple_cards:
-                    missing_card = purple_cards[missing_card] # TODO: INDEX??? for display purposes...use the real card, not the one you create!!!!
+                    missing_card = purple_cards[missing_card]
                     valid_sets.append(set([red_card, green_card, missing_card]))
 
         return valid_sets

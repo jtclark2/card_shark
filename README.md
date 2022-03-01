@@ -2,11 +2,6 @@
 Using a web cam, this program identifies and plays your favorite card game, "Set"! Cards in a set will be highlighted
 with a boarder in the video stream. 
 
-# Known Errors
-### TODO:
-This runs with opencv 3.X, but I put 4.1.0 in the notes below. This is in anticipation of updates I started on the linux
-machine. Those will be out soon.
-
 # Set - How do you play?
 [Official Rules on Youtube](https://youtu.be/NzXDfSFQ1c0)
 Set is a card game in which 12 cards are laid out, and each player has to pick out sets of 3 cards that follow specific 
@@ -14,37 +9,52 @@ patterns. Each card is identified by combination of 4 features: shape, color, an
 when each feature is either the same across all three cards, or unqiue across all three cards.
 # Example:
 Cards:
-- (2 green diamonds that are not filled in)
-- (2 green stadiums that are not filled in)
-- (2 green wisps    that are not filled in)
+- (2 hollow green diamonds)
+- (2 hollow green stadiums)
+- (2 hollow green wisps   )
+
 Explanation:
-- All the cards have 2 copies of the symbol.
-- All the cards are green.
-- All the cards have different shapes.
-- All the cards are not filled in  
+- All the cards have **2** copies of each shape.
+- All the shapes are **green**.
+- All the cards have **different** shapes.
+- All the card are **hollow** inside the shapes
     
 # Future Improvements
-- Speed up: When I extract card images, they're usually about ~100x150 pixels pulled from a 640x480 image; however,
-I'm currently resizing them way up to 600x400...I could just shrink the card scale, but I have some dependencies
-in the card analyzer, where I use some hard-coded values, and now it will be a bit tricky to re-tune everything
-at a new scale...very doable, but I'll need to redo a bunch of hand-tuning, which I don't have time for right now
-- organize and comment a little better...very cool program, but I wrote it a while ago, and while learning opencv.
-    - Just improve the organization and readability
-- I've considered adding an ML classifier for individual cards...I probably won't at this point, since the
-existing tools work quite well. If I add it, it will just be for fun.
-- Script env setup
-- Whip up a GUI with all the config options in MainSet.py
+- Magic Numbers: I'm not proud of it, but a lot of them got in there while I was tuning. I need to consolidate 
+configurable parameters and add a few comments explaining them
+- Env setup instructions/script...dependencies are listed below, and it's not too hard, but PIL and opencv
+can get finnicky if you don't grab the right versions, so I should add an explicit setup file
+- Calibration: Could automate calibration further for tuning threshold...(fastish) unsupervised clustering algorithm would be great!
+- ML classifier to identify cards...I probably won't at this point, since the existing tools work quite well. 
+If I add it, it will just be for fun.
+- Whip up a GUI with all the config options in MainSet.py. I should probably do this, but I won't, because I don't
+really like building GUIs...If you're reading this, and you enjoy building UIs, I'd welcome the help!
 
 # Notes on tools
-- Camera Runs in BGR
+- PIL and opencv work well together, but make sure you have the correct versions. They are a bit finnicky,
+and I've found that the package managers don't always get it right (I think the build-dependencies were not updated
+in a few versions of PIL...not sure though)
 - HSV space is a little quirky in opencv
     - 0-360 degrees, but 1 byte is 0-255...Opencv chose 0-180 (+1 means 2 degrees Saturation)
     - at 180, a smooth transition wraps back to 0 (so 181 and 1 represent the same saturation value)
     - 255 --> 256 causes the rollover errors you would expect (just shift everything into the 0-180 range)
 
-
 # Getting Started
-This is a lot of fun, and pretty easy to use. The only trick is setting up the environment dependencies (see below).
+1) The environment setup is described below. Start with that.
+2) Once you're running, configure the inputs in `MainSet.py`. 
+    - Select SOURCE_TYPE as "image" or "video"
+    - set the input (either an image, or video source)
+        - video source can be a file, or camera (0 based index)
+3) While running, there are a handful of keyboard inputs available.
+    - 's': **save** the current frame (useful for grabbing key frames from video
+    - **calibration**: These usually are not needed, but they're here in case!
+        - 'c': Automatic calibration (tunes all the colors/hues), provided they are on screen
+        - 'r': Calibrate visible card to be the new ground truth of **Red**
+        - 'g': Calibrate visible card to be the new ground truth of **Green**
+        - 'p': Calibrate visible card to be the new ground truth of **Purple**
+        - '[', ']', '(', ')': Tune Fill/texture thresholds (hollow, striped, solid)
+    - 'q': **quit** (closes all windows and any active camera connection)
+    - ' ' (space): **pause**
 
 ## Setting up the environment
 

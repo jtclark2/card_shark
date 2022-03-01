@@ -87,8 +87,6 @@ def image_pipeline(image, image_extractor, color_table, player):
         Visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"],
                                  line_thickness=3, show_labels=True, text_size=1.3)
 
-
-    # TODO: cv2.resize causes minor aliasing, but removes the imutils dependency (which has been a bit unstable)
     shape = display_image.shape
     display_image = cv2.resize(display_image, (OUTPUT_WIDTH*shape[1]//shape[0], OUTPUT_WIDTH))
 
@@ -96,7 +94,6 @@ def image_pipeline(image, image_extractor, color_table, player):
     fps = 1 / (time.perf_counter() - tic)
     display_image = Visualizer.display_fps(display_image, fps, text_size=1)
 
-    # image = imutils.resize(image, width=OUTPUT_WIDTH)
     cv2.imshow("Game Window", display_image)
     overlay_time = f"{time.perf_counter() - start: .5f}"
     # print(extract_time, id_time, play_time, overlay_time)
@@ -148,10 +145,10 @@ if SOURCE_TYPE == "video":
             vid_writer.write(processed_image)
 
         action = KeyboardInput.listenToKeyBoard(image, image_extractor, card_analyzer)
-        if action == "quit": # TODO: Enum
+        if action == KeyboardInput.KeyBoardActions.quit:
             cam.release()
             if record_video:
                 vid_writer.release()
             break
-        if action == "pause":
+        if action == KeyboardInput.KeyBoardActions.pause:
             pause = not pause

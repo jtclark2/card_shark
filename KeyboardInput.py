@@ -1,6 +1,11 @@
 import time
 import Card
 import cv2
+from enum import Enum
+
+class KeyBoardActions(Enum):
+    quit = "quit"
+    pause = "pause"
 
 def listenToKeyBoard(image, image_extractor, card_analyzer):
     key_input = cv2.waitKey(1)
@@ -50,8 +55,8 @@ def listenToKeyBoard(image, image_extractor, card_analyzer):
 
     if (key_input & 0xFF == ord('q')):  # Quit
         cv2.destroyAllWindows()
-        return "quit"
+        return KeyBoardActions.quit
 
     if (key_input & 0xFF == ord(' ')):  # Quit
         cv2.destroyAllWindows()
-        return "pause"
+        return KeyBoardActions.pause

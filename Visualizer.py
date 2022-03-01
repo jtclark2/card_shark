@@ -51,8 +51,9 @@ class Visualizer:
         :param text_size: Size that text will be display in (size in pixels)
         :return: The image with text overlaid
         """
+        text_size = Visualizer.scale_text_to_image(text_size, image.shape[0])
         x,y = image.shape[1] - int(text_size*215), int(text_size*5)
-        text_thickness = int(text_size * 2)
+        text_thickness = int(text_size * 3)
         spacing = int(text_size * 30)
         for key in key_dict:
             y += spacing
@@ -61,13 +62,14 @@ class Visualizer:
         return image
 
     @staticmethod
-    def display_fps(image, fps,  text_size=30):
-        text_size = 30 # in pixels
+    def display_fps(image, fps,  text_size):
+        text_size = Visualizer.scale_text_to_image(text_size, image.shape[0])
         white = [255, 255, 255]
-        x,y = image.shape[1] - text_size//6-170, image.shape[0] - text_size//6-35
-        y += text_size
+        x = int(image.shape[1] - text_size*5-75)
+        y = int(image.shape[0] - text_size*5)
+        thickness = int(text_size*3)
         cv2.putText(image, f"FPS: {fps: .1f}", (x, y), cv2.FONT_HERSHEY_SIMPLEX,
-                    text_size/30, white, text_size//12)
+                    text_size, white, thickness)
         return image
 
     @staticmethod
@@ -101,11 +103,11 @@ class Visualizer:
         :param contour: A contour outlining the card
         :return: The updated image, with contours added.
         """
-        text_size = text_size
+        text_size = Visualizer.scale_text_to_image(text_size, image.shape[0])
         spacing = int(text_size * 30)
-        text_thickness = int(text_size * 2)
+        text_thickness = int(text_size * 3)
 
-        cX_offset = int(-40*text_size)
+        cX_offset = int(-50*text_size)
         cY_offset = int(-20*text_size)
 
         # Find Center of card
@@ -124,3 +126,7 @@ class Visualizer:
 
         return image
 
+
+    @staticmethod
+    def scale_text_to_image(size, width):
+        return size * width/1080 # I tuned everything at 1080p

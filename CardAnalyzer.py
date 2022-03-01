@@ -23,7 +23,7 @@ class HandTunedCardAnalyzer:
             different decks (eg: SET, standard playing cards, etc.) I have tools to interpret shapes, colors, etc.
     """
 
-    def __init__(self, card_shape = (150,100), border_width=10):
+    def __init__(self, card_shape = (150,100), border_width=0):
         self.border_width = border_width
         self.card_shape = card_shape
         self.diagnostic_mode = False
@@ -33,10 +33,10 @@ class HandTunedCardAnalyzer:
         # TODO: There are magical hand-tuned numbers throughout this class.
         # I marked these with "TODO: scale to Card Dimensions", and I'm working on cleaning it up
         self.mask_library = []
-        SAVE_PATH = "CardTemplates/%s_%s.jpg"
+        LOAD_PATH = "CardTemplates/%s_%s.jpg"
         for shape in Shape: # ('stadium', 'wisp', 'diamond'):
             for count in Count: # ('one', 'two', 'three'):
-                path = SAVE_PATH % (shape.value, count.value)
+                path = LOAD_PATH % (shape.value, count.value)
                 im = cv2.imread(path)
                 mask = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
                 if mask.shape != card_shape:
@@ -49,8 +49,8 @@ class HandTunedCardAnalyzer:
         self.count = 0
 
         # calibration defaults
-        self.empty_striped_thresh = 1.5
-        self.striped_solid_thresh = 9
+        self.empty_striped_thresh = 1
+        self.striped_solid_thresh = 20
 
         self.hue_table = {"low_red": 5,
                           "green":85,
@@ -110,6 +110,8 @@ class HandTunedCardAnalyzer:
         :param image: In image of a card/template
         :return: Cropped image
         """
+        if self.border_width == 0:
+            return image
         return image[self.border_width:-self.border_width,self.border_width:-self.border_width]
 
     def identify_card(self, card):
@@ -129,7 +131,7 @@ class HandTunedCardAnalyzer:
         count_and_shape_time = f"{time.perf_counter() - start: .5f}"
 
         start = time.perf_counter()
-        (card.color, card.fill) = self._identify_color_and_fill(card.image, mask, card.index)
+        (card.color, card.fill) = self._identify_color_and_fill(card, mask, card.index)
         color_and_fill_time = f"{time.perf_counter() - start: .5f}"
 
         # print(feature_mask_time, count_and_shape_time, color_and_fill_time)
@@ -194,8 +196,21 @@ class HandTunedCardAnalyzer:
             describes by the combinations of 3 shapes and 3 counts. Since this is a reasonable number, it is reasonably
             easy to save idealized versions of these, and compare all future possibilities to those.
 
-            This has proven to be very robust to lighting changes, and much more stable than the other hand-tuned attempts
-            at interpreting contours as shapes.
+        Advantages: Generalizes very well to new games (just grab a new set of silhouettes). Reasonably robust...works
+        99.9% of the time.
+        Distadvantages:
+            - Cards and camera need to be perfectly still...as they blur, everything starts to look more round,
+             like a stadium.
+            - Not 100%...I can do better
+
+        I'm pretty sure I could do better:
+                - Thin out the shape with the inner mask or something similar (maybe a vertical-only erode),
+                and then analyze the curvature along the top/bottom edges.
+                    - wisp becomes a wavy line (high curvature at edges
+                    - stadium becomes a straight line (no significant curvature)
+                    - Diamond become two sloped lines, with a vertex in the middle
+
+            stadium turns into a pretty simple line.
 
         :param mask: Input mask (background = 0, feature_pixels = 255)
         :return: (count, shape, quality_score)
@@ -215,30 +230,35 @@ class HandTunedCardAnalyzer:
 
         # Dev only: diagnostics
         if self.diagnostic_mode:
+            print("#"*50)
             if best_match_card.shape is not None:
-                for template_card in self.mask_library: # Use this to see how close competing matches were
-                    match_score = self._intersection_over_union(mask, template_card.image)
-                    if match_score > .9999*best_match_score and card.index==0:
-                        label = f"{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}"
-                        label = "" # simple print (less windows)
-                        cv2.imshow(f"Intersection:{label}",
-                                   cv2.bitwise_and(mask, template_card.image))
+                # for template_card in self.mask_library: # Use this to see how close competing matches were
+                #     match_score = self._intersection_over_union(mask, template_card.image)
+                #     if match_score > .9999*best_match_score and card.index==0:
+                #         label = f"{best_match_card.shape.value}-{best_match_card.count.value}:{best_match_score}"
+                #         label = "" # simple print (less windows)
+                #         print(f"\t{best_match_card.shape.value}-{best_match_card.count.value} | {match_score}")
 
-                        cv2.imshow(f"Union:{label}",
-                                   cv2.bitwise_or(mask, template_card.image))
-                        print(f"\t{best_match_card.shape.value}-{best_match_card.count.value} | {match_score}")
-                print(f"Shape:({best_match_card.shape.value}, Fill/Texture: {best_match_card.count.value}, score: {best_match_score}")
+                # cv2.imshow(f"Template: {best_match_card.shape}_{best_match_card.count}", cv2.resize(mask, (300, 450)))
+                # cv2.imwrite(f"CardTemplates/T{best_match_card.shape}_{best_match_card.count}.jpg", mask)
+                cv2.imshow(f"Intersection:",
+                           cv2.resize(cv2.bitwise_and(mask, best_match_card.image), (400, 600)))
+
+                cv2.imshow(f"Union:",
+                           cv2.resize(cv2.bitwise_or(mask, best_match_card.image), (400, 600)))
+                print(f"Shape:({best_match_card.shape.value}, Count: {best_match_card.count.value}, score: {best_match_score}")
             else:
                 print(f"Shape: None, Fill: None...All scores below: {self.junk_shape_thresh} ")
 
         return (best_match_card.count, best_match_card.shape, best_match_score)
 
-    def _identify_color_and_fill(self, image, inner_mask, id):
-        offset_inner_mask, outer_mask = self.create_offset_masks(image, inner_mask)
+    def _identify_color_and_fill(self, card, inner_mask, id):
+        offset_inner_mask, outer_mask = self.create_offset_masks(card.image, inner_mask)
 
-        card_color, _ = self.identify_color(image, offset_inner_mask, outer_mask)
+        card_color, _ = self.identify_color(card.image, offset_inner_mask, outer_mask)
+        card.color = card_color
 
-        fill, _ = self.identify_fill(image, offset_inner_mask, outer_mask)
+        fill, _ = self.identify_fill(card, offset_inner_mask, outer_mask)
 
         return (card_color, fill)
 
@@ -248,7 +268,7 @@ class HandTunedCardAnalyzer:
         outer_mask = np.zeros(shape, np.uint8) + 255
         idx = (inner_mask != 0)
         outer_mask[idx] = 0
-        thickness_of_edge_mask_as_fraction = 1. / 20
+        thickness_of_edge_mask_as_fraction = 1. / 15
         erosion_size = int(((shape[0] * shape[
             1]) ** .5) * thickness_of_edge_mask_as_fraction)  # 3-5 seems like a good range to remove color blur from edges # TODO: scale to Card Dimensions
         erosion_shape = cv2.MORPH_ELLIPSE
@@ -262,20 +282,31 @@ class HandTunedCardAnalyzer:
             image[:, :, idx] = cv2.multiply(image[:, :, idx], normalization_scalar)
         return offset_inner_mask, outer_mask
 
-    def identify_fill(self, image, offset_inner_mask, outer_mask):
+    def identify_fill(self, card, offset_inner_mask, outer_mask):
+        image = card.image
         # Fill / Texture
         H, S, V = 0, 1, 2
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         saturation = np.mean(hsv_image[:, :, S], where=offset_inner_mask.astype(bool))
         background_saturation = np.mean(hsv_image[:, :, S], where=outer_mask.astype(bool))
-        saturation_ratio = saturation / background_saturation
+        # saturation_ratio = saturation / background_saturation # Tried this...the background was adding too much noise
+        saturation_diff = saturation - background_saturation
 
-        self.striped_solid_thresh
 
-        # print(saturation_ratio)
-        if saturation_ratio > self.striped_solid_thresh:    # 9 is a reasonable value
+        if card.color is not None:
+            # R:5, P:1, G:3
+            if card.color == Color.purple:
+                color_correction = 1./1
+            if card.color == Color.red:
+                color_correction = 1./5
+            if card.color == Color.green:
+                color_correction = 1./2
+
+            saturation_diff *= color_correction
+
+        if saturation_diff > self.striped_solid_thresh:    # 9 is a reasonable value
             fill = Fill.solid
-        elif saturation_ratio > self.empty_striped_thresh:  # 1.5 is a reasonable value
+        elif saturation_diff > self.empty_striped_thresh:  # 1.5 is a reasonable value
             fill = Fill.striped
         else:
             fill = Fill.empty
@@ -284,11 +315,13 @@ class HandTunedCardAnalyzer:
         if self.diagnostic_mode:
             hsv_image[:, :, V] = 255.
             image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
-            image = cv2.bitwise_and(image, image, mask=offset_inner_mask)
-            cv2.imshow("Fill: Masked (Value@255)", image)
+            fill_img = cv2.bitwise_and(image, image, mask=offset_inner_mask)
+            background_img = cv2.bitwise_and(image, image, mask=outer_mask)
+            cv2.imshow("Fill: Masked (Value@255)", cv2.resize(fill_img, (400, 600)))
+            cv2.imshow("Background: Masked (Value@255)", cv2.resize(background_img, (400, 600)))
 
-            print(f"Fill: {fill} ratio: {saturation_ratio}, shape:{saturation}, background: b{background_saturation}-")
-        return fill, saturation_ratio
+            print(f"Fill/Texture: {fill} Difference: {saturation_diff}, Inner:{saturation}, Background: b{background_saturation}-")
+        return fill, saturation_diff
 
     def identify_color(self, image, offset_inner_mask, outer_mask):
         H, S, V = 0, 1, 2
@@ -329,5 +362,5 @@ class HandTunedCardAnalyzer:
 
             # make image size whatever works for your eyes
             cv2.imshow(f"Color: Masked Image", cv2.resize(masked_view, (400, 600)))
-            cv2.imshow(f"Show silhouette color-{id}", disp_im)
+            cv2.imshow(f"Show silhouette color-{id}", cv2.resize(disp_im, (400, 600)))
         return card_color, hue

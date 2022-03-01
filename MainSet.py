@@ -16,8 +16,8 @@ SOURCE_TYPE = "image"
 
 if SOURCE_TYPE == "video":
     # Either camera index or a video
-    VIDEO_SOURCE = "Attempt1_WithoutGraphics.avi"
-    # VIDEO_SOURCE = 1
+    VIDEO_SOURCE = "Attempt2_WithoutGraphics.avi"
+    VIDEO_SOURCE = 1
 
     if type(VIDEO_SOURCE) == str:
         VIDEO_SOURCE = f"VideoLibrary/{VIDEO_SOURCE}"
@@ -32,11 +32,12 @@ if SOURCE_TYPE == "video":
 
 else:
     IMG_NAME = "IMG_6394.JPG"
-    IMG_NAME = "WebCam1.PNG"
-    IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
+    # IMG_NAME = "IMG_6441.JPG"
+    # IMG_NAME = "WebCam1.PNG"
+    # IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
     # IMG_NAME = "RedReadsGreen.jpg" # looks like a rollover error in hue space
     # IMG_NAME = "CaptureBright.jpg"
-    # IMG_NAME = "CaptureBackOfBox.jpg"
+    IMG_NAME = "CaptureBackOfBox.jpg"
     # IMG_NAME = "ReadsAsThree.jpg"
     # IMG_NAME = "CaptureCardContourIssue.jpg"
     # IMG_NAME = "CaptureBright.jpg"
@@ -80,23 +81,25 @@ def image_pipeline(image, image_extractor, color_table, player):
     display_image = image.copy() # Create a copy to add graphics on top of
     Visualizer.overlay_ROIs(display_image, image_extractor.ROIs, color=color_table["Raw_Contour"], line_thickness=3)
     Visualizer.overlay_cards(cards, display_image, image_extractor.card_ROIs, color=color_table["Card"],
-                             line_thickness=3, text_size=1.5)
+                             line_thickness=3, text_size=1.3)
 
     if len(sets) > 0:
         Visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"],
-                                 line_thickness=3, show_labels=True, text_size=1.5)
+                                 line_thickness=3, show_labels=True, text_size=1.3)
 
-    image = Visualizer.overlay_color_key(display_image, color_table, text_size=1.8)
-    fps = 1 / (time.perf_counter() - tic)
-    image = Visualizer.display_fps(display_image, fps)
 
     # TODO: cv2.resize causes minor aliasing, but removes the imutils dependency (which has been a bit unstable)
-    shape = image.shape
-    image = cv2.resize(image, (OUTPUT_WIDTH*shape[1]//shape[0], OUTPUT_WIDTH))
+    shape = display_image.shape
+    display_image = cv2.resize(display_image, (OUTPUT_WIDTH*shape[1]//shape[0], OUTPUT_WIDTH))
+
+    display_image = Visualizer.overlay_color_key(display_image, color_table, text_size=1.5)
+    fps = 1 / (time.perf_counter() - tic)
+    display_image = Visualizer.display_fps(display_image, fps, text_size=1)
+
     # image = imutils.resize(image, width=OUTPUT_WIDTH)
-    cv2.imshow("Game Window", image)
+    cv2.imshow("Game Window", display_image)
     overlay_time = f"{time.perf_counter() - start: .5f}"
-    print(extract_time, id_time, play_time, overlay_time)
+    # print(extract_time, id_time, play_time, overlay_time)
     return image
 
 # Read image, process, display image, and plot all cards found

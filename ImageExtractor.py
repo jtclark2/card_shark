@@ -122,8 +122,11 @@ class ImageExtractor:
         light_correction = cv2.GaussianBlur(small_gray, (int(width/20)*2+1, int(width/20)*2+1), 0) #Reduce noise in the image
         light_correction = cv2.resize(light_correction, (width, height))
         light_correction = light_correction - np.amin(light_correction)
+        # cv2.imwrite("ImageLibrary/PreCorrection.jpg", gray)
+        # cv2.imwrite("ImageLibrary/light_correction.jpg", light_correction)
 
         gray = cv2.subtract(gray, light_correction)
+        # cv2.imwrite("ImageLibrary/PostCorrection.jpg", gray)
 
         blurred = cv2.medianBlur(gray, BLUR, 0) #Reduce noise in the image
 
@@ -132,7 +135,8 @@ class ImageExtractor:
         ret,thresh_im = cv2.threshold(blurred,min_thresh,max_thresh,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         # ret,thresh = cv2.threshold(blurred,min_thresh,max_thresh,cv2.THRESH_OTSU)
 
-        # cv2.imshow("test_thresh", imutils.resize(thresh, width=600))
+        # cv2.imshow("test_thresh", thresh_im)
+        # cv2.imwrite("ImageLibrary/card_contour_thresh.jpg", thresh_im)
         # find contours in the thresholded image and initialize the
         # shape detector
         contours = cv2.findContours(thresh_im.copy(), cv2.RETR_EXTERNAL,

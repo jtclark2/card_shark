@@ -11,7 +11,7 @@ def listenToKeyBoard(image, image_extractor, card_analyzer):
     key_input = cv2.waitKey(1)
     if (key_input & 0xFF == ord('s')):  # Save Image
         name = "ImageLibrary/Capture%s.jpg" % repr(time.time())
-        cv2.imwrite(name, image)
+        cv2.imwrite(name, cv2.resize(image, (640,480)))
 
     # Automatic calibration (refines output if cards are mostly correct already)
     if (key_input & 0xFF == ord('c')):  # Calibrate
@@ -21,11 +21,11 @@ def listenToKeyBoard(image, image_extractor, card_analyzer):
 
     # Manual-ish calibrations
     if (key_input & 0xFF == ord('[')):
-        card_analyzer.empty_striped_thresh -= 0.05
-        print(f"Adjusted empty_striped_thresh: {card_analyzer.empty_striped_thresh}")
+        card_analyzer.hollow_striped_thresh -= 0.05
+        print(f"Adjusted hollow_striped_thresh: {card_analyzer.hollow_striped_thresh}")
     if (key_input & 0xFF == ord(']')):
-        card_analyzer.empty_striped_thresh += 0.05
-        print(f"Adjusted empty_striped_thresh: {card_analyzer.empty_striped_thresh}")
+        card_analyzer.hollow_striped_thresh += 0.05
+        print(f"Adjusted hollow_striped_thresh: {card_analyzer.hollow_striped_thresh}")
 
     if (key_input & 0xFF == ord('(')):
         card_analyzer.striped_solid_thresh -= 0.1

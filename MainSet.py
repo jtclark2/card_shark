@@ -12,19 +12,20 @@ import KeyboardInput
 
 ######## Configuration setup #########
 SOURCE_TYPE = "video"
-# SOURCE_TYPE = "image"
+SOURCE_TYPE = "image"
 
 if SOURCE_TYPE == "video":
     # Either camera index or a video
     VIDEO_SOURCE = "Attempt2_WithoutGraphics.avi"
-    # VIDEO_SOURCE = 1
+    VIDEO_SOURCE = "ChallengeCase.avi"
+    VIDEO_SOURCE = 1
 
     if type(VIDEO_SOURCE) == str:
         VIDEO_SOURCE = f"VideoLibrary/{VIDEO_SOURCE}"
 
-    record_video = False
+    record_video = True
     if record_video:
-        FRAME_RATE = 24.0
+        FRAME_RATE = 16.0 # meta-data for video generation (doesn't impact live play)
         OUTPUT_FILE = "Output.avi"
         OUTPUT_VIDEO_PATH = f"VideoLibrary/Output_{FRAME_RATE}FPS_{OUTPUT_FILE}"
         raw = False
@@ -32,16 +33,18 @@ if SOURCE_TYPE == "video":
 
 else:
     IMG_NAME = "IMG_6394.JPG"
+    IMG_NAME = "IMG_6441.JPG"
     # IMG_NAME = "IMG_6441.JPG"
     # IMG_NAME = "WebCam1.PNG"
-    # IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
+    IMG_NAME = "Capture_AllShades_MatchedToSilhouette.jpg"
     # IMG_NAME = "RedReadsGreen.jpg" # looks like a rollover error in hue space
     # IMG_NAME = "CaptureBright.jpg"
-    IMG_NAME = "CaptureBackOfBox.jpg"
+    # IMG_NAME = "CaptureBackOfBox.jpg"
     # IMG_NAME = "ReadsAsThree.jpg"
     # IMG_NAME = "CaptureCardContourIssue.jpg"
     # IMG_NAME = "CaptureBright.jpg"
     # IMG_NAME = "CaptureBackOfBox.jpg"
+    IMG_NAME = "Capture1646373488.759603.jpg"
 
     IMG_PATH = f"ImageLibrary/{IMG_NAME}"
 
@@ -61,6 +64,11 @@ player = SetPlayer.SetPlayer()
 def image_pipeline(image, image_extractor, color_table, player):
     tic = time.perf_counter()
     start = time.perf_counter()
+
+    shape = image.shape
+    if(shape != (480, 640, 3)):
+        image = cv2.resize(image, (OUTPUT_WIDTH*shape[1]//shape[0], OUTPUT_WIDTH))
+
     images = image_extractor.detect_cards(image)
     extract_time = f"{time.perf_counter() - start: .5f}"
 
@@ -87,8 +95,6 @@ def image_pipeline(image, image_extractor, color_table, player):
         Visualizer.overlay_cards(sets[0], display_image, image_extractor.card_ROIs, color=color_table["Set"],
                                  line_thickness=3, show_labels=True, text_size=1.3)
 
-    shape = display_image.shape
-    display_image = cv2.resize(display_image, (OUTPUT_WIDTH*shape[1]//shape[0], OUTPUT_WIDTH))
 
     display_image = Visualizer.overlay_color_key(display_image, color_table, text_size=1.5)
     fps = 1 / (time.perf_counter() - tic)
@@ -97,7 +103,7 @@ def image_pipeline(image, image_extractor, color_table, player):
     cv2.imshow("Game Window", display_image)
     overlay_time = f"{time.perf_counter() - start: .5f}"
     # print(extract_time, id_time, play_time, overlay_time)
-    return image
+    return display_image
 
 # Read image, process, display image, and plot all cards found
 if SOURCE_TYPE == "image":
@@ -124,7 +130,7 @@ if SOURCE_TYPE == "video":
         if raw:
             shape = cam.shape
         else:
-            shape = (OUTPUT_WIDTH, OUTPUT_WIDTH*cam.shape[1]//cam.shape[0])
+            shape = (OUTPUT_WIDTH*cam.shape[0]//cam.shape[1], OUTPUT_WIDTH)
 
         vid_writer = cv2.VideoWriter(OUTPUT_VIDEO_PATH, fourcc, FRAME_RATE, shape)
 

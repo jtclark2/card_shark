@@ -29,6 +29,8 @@ can get finnicky if you don't grab the right versions, so I should add an explic
 If I add it, it will just be for fun.
 - Whip up a GUI with all the config options in MainSet.py. I should probably do this, but I won't, because I don't
 really like building GUIs...If you're reading this, and you enjoy building UIs, I'd welcome the help!
+- For the shape detection, I only use 1, even if there are 2 or 3 available...no issues now, but I am throwing out
+potentially valuable info
 
 # Notes on tools
 - PIL and opencv work well together, but make sure you have the correct versions. They are a bit finnicky,

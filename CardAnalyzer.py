@@ -47,12 +47,12 @@ class HandTunedCardAnalyzer:
         self.count = 0
 
         # calibration defaults
-        self.hollow_striped_thresh = 1
+        self.hollow_striped_thresh = 1.5
         self.striped_solid_thresh = 20
 
         self.hue_table = {"low_red": 5,
                           "green":85,
-                          "purple":150,
+                          "purple":160,
                           "high_red":185}
 
     def calibrate_single_color(self, card, color):
@@ -92,7 +92,7 @@ class HandTunedCardAnalyzer:
         # self.empty_striped_thresh = (min(saturation_ratios))**0.5 # geometric mean between empty ~1, and the value we just found: a*sqrt(b/a)
         # self.striped_solid_thresh = max(saturation_ratios)*3 # If this is inconsistent, we'll need 3 solids for a geometric mean
 
-        print(f"New Thresholds: Empty - ({self.empty_striped_thresh}) - Striped - ({self.striped_solid_thresh}) - Solid")
+        print(f"New Thresholds: Empty - ({self.hollow_striped_thresh}) - Striped - ({self.striped_solid_thresh}) - Solid")
 
         all_colors = [Color.purple, Color.green, Color.red]
         for card in cards:
@@ -251,6 +251,7 @@ class HandTunedCardAnalyzer:
         Distadvantages:
             - Cards and camera need to be perfectly still...as they blur, everything starts to look more round,
              like a stadium.
+            - Slight errors in the positioning of the card can have significant impact on the result
 
         :param mask: Input mask (background = 0, feature_pixels = 255)
         :return: (count, shape, quality_score)
@@ -273,11 +274,14 @@ class HandTunedCardAnalyzer:
         if self.diagnostic_mode:
             print("#"*50)
             if best_match_card.shape is not None:
-                cv2.imshow(f"Intersection:",
-                           cv2.resize(cv2.bitwise_and(mask, best_match_card.image), (400, 600)))
+                intersection_image = cv2.bitwise_and(mask, best_match_card.image)
+                cv2.imshow(f"Intersection:", cv2.resize(intersection_image, (400, 600)))
 
-                cv2.imshow(f"Union:",
-                           cv2.resize(cv2.bitwise_or(mask, best_match_card.image), (400, 600)))
+                union_image = cv2.bitwise_or(mask, best_match_card.image)
+                cv2.imshow(f"Union:", cv2.resize(union_image, (400, 600)))
+                iou_image = cv2.bitwise_xor(intersection_image,union_image)
+                iou_image = cv2.bitwise_or(iou_image, union_image//2)
+                cv2.imshow(f"IoU", cv2.resize(iou_image, (400, 600)))
                 print(f"Shape:({best_match_card.shape.value}, Count: {best_match_card.count.value}, score: {best_match_score}")
             else:
                 print(f"Shape: None, Fill: None...All scores below: {self.junk_shape_thresh} ")
